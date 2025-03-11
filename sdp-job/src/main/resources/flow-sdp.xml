@@ -1,0 +1,279 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<flow>
+    <!-- 主机节点扩容 -->
+    <chain name="host_extend">
+        THEN(
+        begin,
+        shr,
+        end,
+        begin,
+        shs,
+        end,
+
+        FOR(sysHostNumOperator).DO( THEN(
+        begin,
+        sha,
+        end
+        )
+        ),
+
+
+        begin,
+        shv,
+        end
+        );
+    </chain>
+
+    <!-- 删除主机 -->
+    <chain name="host_del">
+        THEN(
+        begin,
+        shdc,
+        end,
+        begin,
+        shd,
+        end
+        );
+    </chain>
+
+    <!-- 服务安装 -->
+    <chain name="serve_install">
+        THEN(
+        begin,
+        ssbse,
+        end,
+        begin,
+        ssbsi,
+        end,
+        begin,
+        ssbda,
+        end,
+        begin,
+        ssbpe,
+        end,
+        begin,
+        ssbpi,
+        end,
+        begin,
+        ssbha,
+        end,
+
+        FOR(ssf).DO( THEN(
+        begin,
+        ssi,
+        end
+        ) )
+        );
+    </chain>
+
+    <!-- 服务卸载 -->
+    <chain name="serve_uninstall">
+        THEN(
+        begin,
+        suc,
+        end,
+        FOR(sus).DO(THEN(begin,ssu,end))
+        );
+    </chain>
+
+    <!-- 一键启动所有已安装服务 -->
+    <chain name="serve_1press_start">
+        THEN(
+        begin,
+        shc,
+        end,
+        FOR(ssas).DO(THEN(begin,ssa,end))
+        );
+    </chain>
+
+    <!-- 一键停止所有已安装服务 -->
+    <chain name="serve_1press_stop">
+        THEN(
+        begin,
+        shc,
+        end,
+        FOR(ssas).DO(THEN(begin,sso,end))
+        );
+    </chain>
+
+    <!-- 一键重启所有已安装服务 -->
+    <chain name="serve_1press_restart">
+        THEN(
+        begin,
+        shc,
+        end,
+        FOR(ssas).DO(THEN(begin,ssra,end))
+        );
+    </chain>
+
+    <!-- 主机上其他服务的一键操作 -->
+    <chain name="node_1press_operation">
+        THEN(
+        begin,
+        nco,
+        end,
+        FOR(nso).DO(THEN(begin,nopr,end))
+        );
+    </chain>
+
+    <!-- 同步配置文件 -->
+    <chain name="config_update">
+        THEN(
+        begin,
+        schc,
+        end,
+        begin,
+        scu,
+        end
+        );
+    </chain>
+
+    <!-- pilot启停操作 -->
+    <chain name="pilot_operator">
+        THEN(
+        begin,
+        psc,
+        end,
+        begin,
+        poa,
+        end
+        );
+    </chain>
+
+    <chain name="operation">
+        THEN(
+        begin,
+        soHao,
+        end,
+        begin,
+        SWITCH(soCao).to(sosSSR, sospSSR,sohSSR,sohpSSR),
+        end,
+        begin,
+        soCheck,
+        end
+        );
+    </chain>
+
+    <!-- 自定义功能 -->
+    <chain name="customOperation">
+        THEN(
+        begin,
+        coEac,
+        end,
+        begin,
+        coDe,
+        end
+        );
+    </chain>
+
+    <!-- 挂载磁盘 -->
+    <chain name="mountDisk">
+        THEN(
+        begin,
+        dhc,
+        end,
+        FOR(sdo).DO( THEN(begin,dm ,end))
+        );
+    </chain>
+
+    <!-- 服务可用性检测 -->
+    <chain name="serve_check">
+        THEN(
+        begin,
+        serveAvailableCheck,
+        end
+        );
+    </chain>
+
+    <!-- 一键检测所有服务可用性 -->
+    <chain name="onePress_serveCheck">
+        THEN(
+        begin,
+        sadc,
+        end,
+        FOR(sus).DO(THEN(begin,opsac,end))
+        );
+    </chain>
+
+    <chain name="make_client_tar">
+        THEN(
+        begin,
+        makeClient,
+        end
+        );
+    </chain>
+
+<!--   修改动态资源配置 -->
+    <chain name="modify_resource">
+        THEN(
+        begin,
+        modifyConfig,
+        end,
+        begin,
+        restartYARN,
+        end,
+        begin,
+        checkYARN,
+        end
+        );
+    </chain>
+
+<!--    删除租户-->
+    <chain name="delete_tenant">
+        THEN(
+        begin,
+        deleteDbInfo,
+        end,
+        begin,
+        deleteHdfsQuota,
+        end,
+        begin,
+        yarnAvailableCheck,
+        end,
+        begin,
+        stopQueue,
+        end,
+        begin,
+        refreshQueue,
+        end,
+        begin,
+        deleteQueue,
+        end,
+        begin,
+        refreshQueue,
+        end,
+        begin,
+        syncRangerGroup,
+        end,
+        begin,
+        deleteUserOnNode,
+        end
+        );
+    </chain>
+
+<!--    添加租户-->
+    <chain name="add_tenant">
+        THEN(
+        begin,
+        paramsCheck,
+        end,
+        begin,
+        save2db,
+        end,
+        begin,
+        modifyHdfsQuota,
+        end,
+        begin,
+        modifyQueueResource,
+        end,
+        begin,
+        syncTenant2Ranger,
+        end,
+        begin,
+        syncTenantAdmin2Node,
+        end
+        );
+    </chain>
+
+
+</flow>
