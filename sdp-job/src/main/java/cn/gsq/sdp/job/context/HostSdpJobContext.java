@@ -25,7 +25,7 @@ import java.util.Queue;
 @Accessors(chain = true)
 public class HostSdpJobContext extends BaseContext {
 
-    private transient Map<String, Queue<HostInfo>> hostDriver= MapUtil.newHashMap();
+    private transient Map<String, Queue<HostInfo>> hostDriver;
     /**
      * @param hostDriver
      * @Description : 构造

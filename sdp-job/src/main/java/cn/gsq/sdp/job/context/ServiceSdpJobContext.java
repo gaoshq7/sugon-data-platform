@@ -21,6 +21,7 @@ import lombok.experimental.Accessors;
 public class ServiceSdpJobContext<T extends OpParams> extends BaseContext {
 
     private T params;//参数的实体类
+
     /**
      * @Description : 构造器
      * @Param : [id, num]

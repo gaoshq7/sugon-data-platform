@@ -25,7 +25,7 @@ import java.util.Queue;
 @Accessors(chain = true)
 public class SystemSdpJobContext extends BaseContext {
 
-    private transient Map<String, Queue<Vertex<AbstractServe>>> data= MapUtil.newHashMap();
+    private transient Map<String, Queue<Vertex<AbstractServe>>> data;
 
     /**
      * @Description : 构造器
@@ -35,7 +35,6 @@ public class SystemSdpJobContext extends BaseContext {
      * @Date : 11:43 上午
      * @note : An art cell !
     **/
-
     public SystemSdpJobContext(Map<String, Queue<Vertex<AbstractServe>>> data) {
         super(UUID.fastUUID().toString(), UUID.fastUUID().toString());
         this.data=data;
