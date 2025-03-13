@@ -31,11 +31,11 @@ public class SshInfo {
      * @Date : 5:02 下午
      * @note : An art cell !
      **/
-    protected SshInfo(String hostname) {
+    public SshInfo(String hostname) {
         this.hostname = hostname;
     }
 
-    protected SshInfo(String id, String hostname, Integer port,String username, String pwd) {
+    public SshInfo(String id, String hostname, Integer port,String username, String pwd) {
         this.id = id;
         this.hostname = hostname;
         this.port = port;
