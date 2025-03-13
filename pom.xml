@@ -5,7 +5,7 @@
     <parent>
         <groupId>io.github.gaoshq7</groupId>
         <artifactId>parent</artifactId>
-        <version>1.0.0-SNAPSHOT</version>
+        <version>1.0.1</version>
     </parent>
 
     <modelVersion>4.0.0</modelVersion>
@@ -16,7 +16,6 @@
     <version>1.0.0-SNAPSHOT</version>
 
     <modules>
-        <module>sdp-job</module>
         <module>sdp-core</module>
         <module>sdp-common</module>
         <module>sdp-external-driver</module>
