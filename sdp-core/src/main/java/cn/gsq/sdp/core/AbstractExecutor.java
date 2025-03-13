@@ -7,6 +7,7 @@ import cn.hutool.core.collection.CollUtil;
 import cn.hutool.core.util.ObjectUtil;
 import cn.hutool.core.util.ReflectUtil;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.core.annotation.AnnotationUtils;
 
 import java.lang.reflect.Method;
 import java.util.Arrays;
@@ -58,6 +59,32 @@ public abstract class AbstractExecutor extends AbstractBeansAssemble implements 
             return operation.setEnable(isEnable);
         };
         return CollUtil.map(this.functions, decide, true);
+    }
+
+    /**
+     * @Description : 反射执行function函数
+     * @Param : executor：执行对象，functionID：函数id,logInfo:日志对象，params：function函数参数列表
+     * @Return :
+     * @Author : xyy
+     * @Date : 2024/6/13
+     * @note :
+     **/
+    public void doFunction(String functionID, Object... params) {
+        for(Method method : this.getClass().getMethods()) {
+            Function function = AnnotationUtils.findAnnotation(method, Function.class);
+            if(ObjectUtil.isNotNull(function) && function.id().equals(functionID)) {
+                try {
+                    if(ObjectUtil.isEmpty(params)){
+                        method.invoke(this);
+                    }else {
+                        method.invoke(this, params);
+                    }
+                } catch (Exception e) {
+                    throw new RuntimeException(e);
+                }
+                break;
+            }
+        }
     }
 
 }
