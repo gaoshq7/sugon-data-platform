@@ -4,6 +4,7 @@ import cn.gsq.common.config.GalaxySpringUtil;
 import cn.gsq.sdp.SdpPropertiesFinal;
 import cn.gsq.sdp.core.annotation.*;
 import cn.gsq.sdp.core.annotation.Process;
+import cn.gsq.sdp.utils.PackageUtils;
 import cn.hutool.core.collection.CollUtil;
 import cn.hutool.core.convert.Convert;
 import cn.hutool.core.util.StrUtil;
@@ -183,16 +184,19 @@ public class SdpEnvManager {
      **/
     private List<String> scan(List<String> classpaths) {
         Function<String, String> select = classpath -> {
-            String result;
-            Package aPackage = Package.getPackage(classpath);
-            Sdp sdp = aPackage.getAnnotation(Sdp.class);
-            List<String> pieces = StrUtil.split(classpath, StrUtil.DOT);
-            String version = pieces.get(pieces.size() - 1);
-            if (sdp != null && version.equals(StrUtil.removeAll(sdp.version(), StrUtil.DOT))) {
-                result = sdp.version();
-            } else {
-                log.warn("'{}'类路径不符合SDP版本规范，已被舍弃 ...", classpath);
-                result = "";
+            String result = "";
+            try {
+                Package packet = PackageUtils.getPackage(classpath);
+                Sdp sdp = packet.getAnnotation(Sdp.class);
+                List<String> pieces = StrUtil.split(classpath, StrUtil.DOT);
+                String version = pieces.get(pieces.size() - 1);
+                if (sdp != null && version.equals(StrUtil.removeAll(sdp.version(), StrUtil.DOT))) {
+                    result = sdp.version();
+                } else {
+                    log.warn("'{}'类路径不符合SDP版本规范，已被舍弃 ...", classpath);
+                }
+            } catch (Exception e) {
+                log.warn("'{}'类路径无法加载，已被舍弃 ...", classpath);
             }
             return result;
         };
