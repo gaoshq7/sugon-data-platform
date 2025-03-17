@@ -4,20 +4,22 @@ import cn.gsq.common.config.GalaxySpringUtil;
 import cn.gsq.sdp.SdpPropertiesFinal;
 import cn.gsq.sdp.core.annotation.*;
 import cn.gsq.sdp.core.annotation.Process;
-import cn.gsq.sdp.utils.PackageUtils;
 import cn.hutool.core.collection.CollUtil;
+import cn.hutool.core.collection.ListUtil;
 import cn.hutool.core.convert.Convert;
+import cn.hutool.core.util.ArrayUtil;
+import cn.hutool.core.util.ObjectUtil;
 import cn.hutool.core.util.StrUtil;
+import lombok.AllArgsConstructor;
 import lombok.Getter;
+import lombok.NoArgsConstructor;
+import lombok.Setter;
 import lombok.extern.slf4j.Slf4j;
 import org.reflections.Reflections;
 import org.springframework.beans.factory.config.BeanDefinition;
 
-import java.io.File;
 import java.io.IOException;
-import java.net.URL;
 import java.util.*;
-import java.util.function.Function;
 import java.util.stream.Collectors;
 
 /**
@@ -32,9 +34,7 @@ import java.util.stream.Collectors;
 @Getter
 public class SdpEnvManager {
 
-    private final String rootClasspath; // 所有版本sdp的代码根目录
-
-    private final List<String> versions;    // 所有sdp版本号
+    private final List<SdpMeta> sdpMetas;    // 所有sdp版本号
 
     private final AbstractSdpManager sdpManager;
 
@@ -42,12 +42,13 @@ public class SdpEnvManager {
 
     protected SdpEnvManager(AbstractSdpManager sdpManager, AbstractHostManager hostManager) {
         try {
-            this.rootClasspath = GalaxySpringUtil.getGlobalArgument("sdp.root.classpath").toString();
-            if (StrUtil.isBlank(this.rootClasspath)) {
+            String rootClasspath = GalaxySpringUtil.getGlobalArgument("sdp.root.classpath").toString();
+            if (StrUtil.isBlank(rootClasspath)) {
                 throw new RuntimeException("全局变量'sdp.root.classpath'不能为空!");
             }
-            List<String> classpaths = getAllClasspath(this.rootClasspath);
-            this.versions = scan(classpaths);
+            log.debug("SDP版本扫描根目录：{}", rootClasspath);
+            this.sdpMetas = getSdpVersions(rootClasspath);
+            this.sdpMetas.forEach(meta -> log.debug("SDP版本{}扫描成功，版本实例所在根目录：{}", meta.getVersion(), meta.getClasspath()));
             this.sdpManager = sdpManager;
             this.hostManager = hostManager;
         } catch (IOException e) {
@@ -57,14 +58,23 @@ public class SdpEnvManager {
     }
 
     /**
+     * @Description : 获取版本号列表
+     **/
+    public List<String> getVersions() {
+        List<String> versions = CollUtil.map(this.sdpMetas, SdpMeta::getVersion, true);
+        return ListUtil.unmodifiable(versions);
+    }
+
+    /**
      * @Description : 设置SDP基础环境
      * @Note : ⚠️ 使用前必须首先调用该方法 !
      **/
     public void loadSdp(String version) {
-        if (!this.versions.contains(version)) {
+        SdpMeta meta = CollUtil.findOne(this.sdpMetas, m -> m.getVersion().equals(version));
+        if (ObjectUtil.isNull(meta)) {
             throw new RuntimeException("SDP版本不存在：" + version);
         }
-        String sdpClasspath = this.rootClasspath + StrUtil.DOT + StrUtil.removeAll(version, StrUtil.DOT);
+        String sdpClasspath = meta.getClasspath() + StrUtil.DOT + StrUtil.removeAll(version, StrUtil.DOT);
         // 初始化sdpmanager
         this.sdpManager.setVersion(version);
         this.sdpManager.setHome(SdpPropertiesFinal.SDP_BASE_PATH + StrUtil.SLASH + version);
@@ -156,52 +166,24 @@ public class SdpEnvManager {
     }
 
     /**
-     * @Description : 获取sdp版本根路径下所有的包名称
+     * @Description : 扫描sdp代码根目录下有效的sdp版本号
+     * @Note : ⚠️ 判断规则：@Sdp注解版本号去掉“.”与@Sdp注解所在最后一层目录相同 !
      **/
-    private List<String> getAllClasspath(String rootPath) throws IOException {
-        String classpath = StrUtil.replace(rootPath, StrUtil.DOT, StrUtil.SLASH);
-        ClassLoader classLoader = Thread.currentThread().getContextClassLoader();
-        Enumeration<URL> resources = classLoader.getResources(classpath);
-        List<String> directories = CollUtil.newArrayList();
-        while (resources.hasMoreElements()) {
-            URL url = resources.nextElement();
-            File file = new File(url.getFile());
-            if (file.exists() && file.isDirectory()) {
-                for (File subFile : file.listFiles()) {
-                    if (subFile.isDirectory()) {
-                        directories.add(rootPath + StrUtil.DOT + subFile.getName());
-                    }
-                }
-            }
-        }
-        return directories;
-    }
-
-    /**
-     * @Description : 扫描sdp根路径下所有可用的sdp版本号
-     * @Note : ⚠️ 1.扫描规则是包路径中必须含有带@Sdp注解的包元数据信息
-     *            2.元数据信息中的版本号与包路径最后一层目录存在去除"."信息后相等的关系
-     **/
-    private List<String> scan(List<String> classpaths) {
-        Function<String, String> select = classpath -> {
-            String result = "";
-            try {
-                Package packet = PackageUtils.getPackage(classpath);
-                Sdp sdp = packet.getAnnotation(Sdp.class);
-                List<String> pieces = StrUtil.split(classpath, StrUtil.DOT);
-                String version = pieces.get(pieces.size() - 1);
-                if (sdp != null && version.equals(StrUtil.removeAll(sdp.version(), StrUtil.DOT))) {
-                    result = sdp.version();
-                } else {
-                    log.warn("'{}'类路径不符合SDP版本规范，已被舍弃 ...", classpath);
-                }
-            } catch (Exception e) {
-                log.warn("'{}'类路径无法加载，已被舍弃 ...", classpath);
-            }
-            return result;
-        };
-        List<String> versions = CollUtil.map(classpaths, select, true);
-        return CollUtil.filter(versions, StrUtil::isNotBlank);
+    private List<SdpMeta> getSdpVersions(String rootPath) throws IOException {
+        Reflections reflections = new Reflections(rootPath);
+        Set<Class<?>> classes = reflections.getTypesAnnotatedWith(Sdp.class);
+        log.debug("获取到{}个SDP环境元数据信息：{}", classes.size(), ArrayUtil.toString(classes));
+        return CollUtil.filter(
+                classes,
+                c -> {
+                        List<String> slices = StrUtil.split(c.getPackage().getName(), StrUtil.DOT);
+                        String version = slices.get(slices.size() - 1);
+                        return StrUtil.removeAll(c.getAnnotation(Sdp.class).version(), StrUtil.DOT)
+                                .equals(version);
+                     }
+                ).stream()
+                 .map(c -> new SdpMeta(c.getAnnotation(Sdp.class).version(), c.getPackageName()))
+                 .collect(Collectors.toList());
     }
 
     /**
@@ -219,6 +201,18 @@ public class SdpEnvManager {
             log.error("加载主机代理失败 : {}", "SDP环境中不存在主机代理类 ... ");
         }
         return (Class<? extends AbstractHost>) CollUtil.getFirst(classes);
+    }
+
+    @Setter
+    @Getter
+    @NoArgsConstructor
+    @AllArgsConstructor
+    private static class SdpMeta {
+
+        private String version;
+
+        private String classpath;
+
     }
 
 }
