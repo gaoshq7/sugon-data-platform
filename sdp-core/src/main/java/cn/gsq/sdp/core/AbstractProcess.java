@@ -45,7 +45,7 @@ public abstract class AbstractProcess<T extends AbstractHost> extends AbstractAp
 
     private final int max;      // 最大部署数量
 
-    private final Logger logger;
+    private Logger logger;      // 日志处理类
 
     private String home;    // 命令执行根目录
 
@@ -64,7 +64,6 @@ public abstract class AbstractProcess<T extends AbstractHost> extends AbstractAp
         this.order = process.order();
         this.min = process.min();
         this.max = process.max();
-        this.logger = new Logger();
         this.description = process.description();
     }
 
@@ -97,6 +96,7 @@ public abstract class AbstractProcess<T extends AbstractHost> extends AbstractAp
                     excludeProcess.getExcludes().add((AbstractProcess<AbstractHost>) this);
                 });
         this.home = this.sdpManager.getHome() + (process.home().startsWith(StrUtil.SLASH) ? process.home() : StrUtil.SLASH + process.home());
+        this.logger = new Logger();
         // 加载进程运行的主机（ ⚠️ 没有安装则返回空值）
         List<String> hostnames = this.processDriver.initHosts(this.getName());
         deployHosts(hostnames);
