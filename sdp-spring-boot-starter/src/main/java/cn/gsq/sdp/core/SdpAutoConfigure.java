@@ -2,6 +2,7 @@ package cn.gsq.sdp.core;
 
 import cn.gsq.sdp.*;
 import cn.gsq.sdp.driver.*;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnMissingBean;
 import org.springframework.context.annotation.Bean;
@@ -19,6 +20,7 @@ import java.util.Set;
  * @date : 2021-04-08 10:44
  * @note : It's not technology, it's art !
  **/
+@Slf4j
 @Configuration
 public class SdpAutoConfigure {
 
@@ -49,6 +51,7 @@ public class SdpAutoConfigure {
     @Bean
     @ConditionalOnMissingBean(BroadcastDriver.class)
     public BroadcastDriver getBroadcastDriver() {
+        log.warn("未定义集群广播驱动：BroadcastDriver，将采用默认策略。");
         return (hostname, appEvent, serveName, msg) -> {
 
         };
@@ -57,6 +60,7 @@ public class SdpAutoConfigure {
     @Bean
     @ConditionalOnMissingBean(ConfigDriver.class)
     public ConfigDriver getConfigDriver() {
+        log.warn("未定义配置文件驱动：ConfigDriver，将采用默认策略。");
         return new ConfigDriver() {
             @Override
             public void conform(ConfigBranch branch, List<ConfigItem> items) {
@@ -93,6 +97,7 @@ public class SdpAutoConfigure {
     @Bean
     @ConditionalOnMissingBean(HostDriver.class)
     public HostDriver getHostDriver() {
+        log.warn("未定义主机管理驱动：HostDriver，将采用默认策略。");
         return new HostDriver() {
             @Override
             public Set<HostInfo> loadHosts() {
@@ -124,6 +129,7 @@ public class SdpAutoConfigure {
     @Bean
     @ConditionalOnMissingBean(LogDriver.class)
     public LogDriver getLogDriver() {
+        log.warn("未定义日志输出驱动：LogDriver，将采用默认策略。");
         return (level, msg) -> {
 
         };
@@ -132,6 +138,7 @@ public class SdpAutoConfigure {
     @Bean
     @ConditionalOnMissingBean(PilotDriver.class)
     public PilotDriver getPilotDriver() {
+        log.warn("未定义Pilot驱动：PilotDriver，将采用默认策略。");
         return new PilotDriver() {
             @Override
             public void startPilot(String hostname) {
@@ -168,6 +175,7 @@ public class SdpAutoConfigure {
     @Bean
     @ConditionalOnMissingBean(ProcessDriver.class)
     public ProcessDriver getProcessDriver() {
+        log.warn("未定义进程管理驱动：ProcessDriver，将采用默认策略。");
         return new ProcessDriver() {
             @Override
             public List<String> initHosts(String processname) {
@@ -189,6 +197,7 @@ public class SdpAutoConfigure {
     @Bean
     @ConditionalOnMissingBean(RpcDriver.class)
     public RpcDriver getRpcDriver() {
+        log.warn("未定义RPC通信驱动：RpcDriver，将采用默认策略。");
         return new RpcDriver() {
             @Override
             public RpcRespond<String> execute(RpcRequest rpcRequest) {
@@ -215,6 +224,7 @@ public class SdpAutoConfigure {
     @Bean
     @ConditionalOnMissingBean(ServeDriver.class)
     public ServeDriver getServeDriver() {
+        log.warn("未定义服务管理驱动：ServeDriver，将采用默认策略。");
         return new ServeDriver() {
             @Override
             public void receiptInstallServe(Blueprint.Serve serve) {
@@ -236,6 +246,7 @@ public class SdpAutoConfigure {
     @Bean
     @ConditionalOnMissingBean(SshDriver.class)
     public SshDriver getSshDriver() {
+        log.warn("未定义SSH服务驱动：SshDriver，将采用默认策略。");
         return new SshDriver() {
             @Override
             public void startAgent(String hostname) {
