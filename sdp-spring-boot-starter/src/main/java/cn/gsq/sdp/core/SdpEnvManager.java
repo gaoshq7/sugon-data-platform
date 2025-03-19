@@ -74,15 +74,14 @@ public class SdpEnvManager {
         if (ObjectUtil.isNull(meta)) {
             throw new RuntimeException("SDP版本不存在：" + version);
         }
-        String sdpClasspath = meta.getClasspath() + StrUtil.DOT + StrUtil.removeAll(version, StrUtil.DOT);
         // 初始化sdpmanager
         this.sdpManager.setVersion(version);
         this.sdpManager.setHome(SdpPropertiesFinal.SDP_BASE_PATH + StrUtil.SLASH + version);
         // 初始化hostmanager
-        this.hostManager.setHostClass(getHostClass(sdpClasspath));
+        this.hostManager.setHostClass(getHostClass(meta.getClasspath()));
         // 动态加载SDP Bean环境
         GalaxySpringUtil.dynamicLoadPackage(
-                sdpClasspath,
+                meta.getClasspath(),
                 BeanDefinition::getBeanClassName
         );
         // 初始化Beans
