@@ -9,6 +9,7 @@ import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 
 import java.util.Collection;
+import java.util.Collections;
 import java.util.List;
 import java.util.Set;
 
@@ -53,7 +54,7 @@ public class SdpAutoConfigure {
     public BroadcastDriver getBroadcastDriver() {
         log.warn("未定义集群广播驱动：BroadcastDriver，将采用默认策略。");
         return (hostname, appEvent, serveName, msg) -> {
-
+            log.info("向{}主机发送{}服务{}信息：{}", hostname, serveName, appEvent.getCnname(), msg);
         };
     }
 
@@ -64,12 +65,13 @@ public class SdpAutoConfigure {
         return new ConfigDriver() {
             @Override
             public void conform(ConfigBranch branch, List<ConfigItem> items) {
-
+                log.info("同步{}配置文件的{}分支", branch.getConfigName(), branch.getBranchName());
             }
 
             @Override
             public List<ConfigItem> loadConfigItems(ConfigBranch branch) {
-                return List.of();
+                log.info("装载{}配置文件的{}分支", branch.getConfigName(), branch.getBranchName());
+                return Collections.emptyList();
             }
 
             @Override
@@ -84,12 +86,12 @@ public class SdpAutoConfigure {
 
             @Override
             public void destroy(ConfigBranch branch) {
-
+                log.info("销毁{}配置文件的{}分支", branch.getConfigName(), branch.getBranchName());
             }
 
             @Override
             public ConfigItem getItemMetadata(ConfigBranch branch, String key) {
-                return null;
+                return new ConfigItem();
             }
         };
     }
@@ -101,27 +103,28 @@ public class SdpAutoConfigure {
         return new HostDriver() {
             @Override
             public Set<HostInfo> loadHosts() {
-                return Set.of();
+                log.info("装载了一套空主机列表");
+                return Collections.emptySet();
             }
 
             @Override
             public boolean removeHostsCallback(String... hostnames) {
-                return false;
+                return true;
             }
 
             @Override
             public boolean updateHostGroups(String hostname, List<String> groups) {
-                return false;
+                return true;
             }
 
             @Override
             public boolean isExist(String hostname) {
-                return false;
+                return true;
             }
 
             @Override
             public boolean isAlive(String hostname) {
-                return false;
+                return true;
             }
         };
     }
@@ -131,7 +134,7 @@ public class SdpAutoConfigure {
     public LogDriver getLogDriver() {
         log.warn("未定义日志输出驱动：LogDriver，将采用默认策略。");
         return (level, msg) -> {
-
+            log.info("输出{}日志: {}", level.getName(), msg);
         };
     }
 
@@ -179,7 +182,8 @@ public class SdpAutoConfigure {
         return new ProcessDriver() {
             @Override
             public List<String> initHosts(String processname) {
-                return List.of();
+                log.info("{}进程装载了一个空主机列表", processname);
+                return Collections.emptyList();
             }
 
             @Override
@@ -201,7 +205,7 @@ public class SdpAutoConfigure {
         return new RpcDriver() {
             @Override
             public RpcRespond<String> execute(RpcRequest rpcRequest) {
-                return null;
+                return new RpcRespond<String>() {};
             }
 
             @Override
