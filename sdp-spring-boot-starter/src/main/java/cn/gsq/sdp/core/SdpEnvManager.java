@@ -182,7 +182,7 @@ public class SdpEnvManager {
                                 .equals(version);
                      }
                 ).stream()
-                 .map(c -> new SdpMeta(c.getAnnotation(Sdp.class).version(), c.getPackageName()))
+                 .map(c -> new SdpMeta(c.getAnnotation(Sdp.class).version(), c.getPackage().getName()))
                  .collect(Collectors.toList());
     }
 
