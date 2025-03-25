@@ -41,6 +41,8 @@ public abstract class AbstractBeansAssemble implements Thing {
 
     protected transient ProcessDriver processDriver;    // 进程持久化驱动器
 
+    protected transient ResourceDriver resourceDriver;  // 文件资源驱动器
+
     protected void setSdpManager(AbstractSdpManager sdpManager) {
         this.sdpManager = sdpManager;
     }
@@ -85,6 +87,10 @@ public abstract class AbstractBeansAssemble implements Thing {
         this.processDriver = processDriver;
     }
 
+    protected void setResourceDriver(ResourceDriver resourceDriver) {
+        this.resourceDriver = resourceDriver;
+    }
+
     protected void setDrivers() {
         this.setSdpManager(GalaxySpringUtil.getBean(AbstractSdpManager.class));
         this.setHostManager(GalaxySpringUtil.getBean(AbstractHostManager.class));
@@ -97,6 +103,7 @@ public abstract class AbstractBeansAssemble implements Thing {
         this.setSshDriver(GalaxySpringUtil.getBean(SshDriver.class));
         this.setServeDriver(GalaxySpringUtil.getBean(ServeDriver.class));
         this.setProcessDriver(GalaxySpringUtil.getBean(ProcessDriver.class));
+        this.setResourceDriver(GalaxySpringUtil.getBean(ResourceDriver.class));
     }
 
 }

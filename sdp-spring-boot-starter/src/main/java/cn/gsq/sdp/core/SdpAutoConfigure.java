@@ -269,4 +269,13 @@ public class SdpAutoConfigure {
         };
     }
 
+    @Bean
+    @ConditionalOnMissingBean(ResourceDriver.class)
+    public ResourceDriver getResourceDriver() {
+        log.warn("未定义安装包下载服务驱动：ResourceDriver，将采用默认策略。");
+        return resource -> {
+
+        };
+    }
+
 }

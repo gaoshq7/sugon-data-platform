@@ -2,10 +2,7 @@ package cn.gsq.sdp.core;
 
 import cn.gsq.common.config.GalaxySpringUtil;
 import cn.gsq.graph.dag.Vertex;
-import cn.gsq.sdp.AppEvent;
-import cn.gsq.sdp.Blueprint;
-import cn.gsq.sdp.RpcRespond;
-import cn.gsq.sdp.WebUI;
+import cn.gsq.sdp.*;
 import cn.gsq.sdp.core.annotation.Serve;
 import cn.gsq.sdp.core.utils.DagUtil;
 import cn.hutool.core.collection.CollUtil;
@@ -114,15 +111,17 @@ public abstract class AbstractServe extends AbstractApp {
         try {
             // ⚠️ 安装第一步：初始化服务，执行服务初始化函数
             initServe(blueprint);
-            // ⚠️ 安装第二步：发送服务预安装广播
+            // ⚠️ 安装第二步：下载安装包
+            download(blueprint.getAllProcessHostnames());
+            // ⚠️ 安装第三步：发送服务预安装广播
             super.broadcast(AppEvent.PREINSTALL, blueprint.getServename(), JSON.toJSONString(blueprint.getProcesses()));
-            // ⚠️ 安装第三步：初始化服务的每一个配置文件
+            // ⚠️ 安装第四步：初始化服务的每一个配置文件
             for(AbstractConfig config : this.configs) {
                 config.install(blueprint);
             }
-            // ⚠️ 安装第四步：延迟等待完成配置文件的更新
+            // ⚠️ 安装第五步：延迟等待完成配置文件的更新
             ThreadUtil.safeSleep(3000);
-            // ⚠️ 安装第五步：构建DAG图逐步初始化服务中的进程
+            // ⚠️ 安装第六步：构建DAG图逐步初始化服务中的进程
             Exception exception = null;
             for(Vertex<AbstractProcess<AbstractHost>> vertex : DagUtil.getDagResult(this.processes)) {
                 AbstractProcess<AbstractHost> process = vertex.getTask();
@@ -136,13 +135,13 @@ public abstract class AbstractServe extends AbstractApp {
             }
             // 服务安装之后,可能需要执行的一些统一操作
             afterInstall(blueprint);
-            // ⚠️ 安装第六步：回调"服务安装回执"函数即视为服务已经安装（不论成功或者失败）
+            // ⚠️ 安装第七步：回调"服务安装回执"函数即视为服务已经安装（不论成功或者失败）
             this.serveDriver.receiptInstallServe(blueprint);
-            // ⚠️ 安装第七步：如果安装失败则抛出异常
+            // ⚠️ 安装第八步：如果安装失败则抛出异常
             if(exception != null) throw exception;
-            // ⚠️ 安装第八步：可用性检测（可被第七步终止）
+            // ⚠️ 安装第九步：可用性检测（可被第七步终止）
             observe();
-            // ⚠️ 安装第九步：发送服务已安装广播（可被第七步终止）
+            // ⚠️ 安装第十步：发送服务已安装广播（可被第七步终止）
             this.broadcast(AppEvent.INSTALLED, blueprint.getServename(), JSON.toJSONString(blueprint.getProcesses()));
             callbackServe();
             this.serveDriver.updateResourcePlan(this.getName());
@@ -354,6 +353,21 @@ public abstract class AbstractServe extends AbstractApp {
      * @note : ⚠️ 服务初始化 子类酌情覆盖 !
      **/
     protected abstract void initServe(Blueprint.Serve blueprint);
+
+    /**
+     * @Description : 下载安装包
+     **/
+    protected void download(List<String> hostnames) {
+        for (String hostname : hostnames) {
+            this.resourceDriver.download(
+                    new Resource()
+                            .setVersion(this.sdpManager.getVersion())
+                            .setServename(this.getName())
+                            .setHostname(hostname)
+                            .setPath(this.sdpManager.getHome())
+            );
+        }
+    }
 
     /**
      * @Description : 服务安装后可能需要执行的方法
