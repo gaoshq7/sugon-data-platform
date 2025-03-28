@@ -92,7 +92,7 @@ public class SdpEnvManager {
         }
 
         String path = (String) GalaxySpringUtil.getGlobalArgument("sdp.root.classpath");
-        String[] beanNames = context.getBeanDefinitionNames();
+        String[] beanNames = GalaxySpringUtil.getContext().getBeanDefinitionNames();
         for (String name : beanNames) {
             if(name.startsWith(path))
                 GalaxySpringUtil.removeBeanByName(name);
