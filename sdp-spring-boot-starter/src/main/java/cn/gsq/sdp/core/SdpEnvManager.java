@@ -17,6 +17,7 @@ import lombok.Setter;
 import lombok.extern.slf4j.Slf4j;
 import org.reflections.Reflections;
 import org.springframework.beans.factory.config.BeanDefinition;
+import org.springframework.context.ApplicationContext;
 
 import java.io.IOException;
 import java.util.*;
@@ -80,6 +81,14 @@ public class SdpEnvManager {
         // 初始化hostmanager
         this.hostManager.setHostClass(getHostClass(meta.getClasspath()));
         // 动态加载SDP Bean环境
+        //删除libraries下所有bean
+        ApplicationContext context = GalaxySpringUtil.getContext();
+        String path = (String) GalaxySpringUtil.getGlobalArgument("sdp.root.classpath");
+        String[] beanNames = context.getBeanDefinitionNames();
+        for (String name : beanNames) {
+            if(name.startsWith(path))
+                GalaxySpringUtil.removeBeanByName(name);
+        }
         GalaxySpringUtil.dynamicLoadPackage(
                 meta.getClasspath(),
                 BeanDefinition::getBeanClassName
