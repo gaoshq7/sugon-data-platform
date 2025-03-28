@@ -485,20 +485,4 @@ public abstract class AbstractServe extends AbstractApp {
         return hosts;
     }
 
-    /**
-     * @Description : 是否存在扩容/缩容
-     */
-    public boolean isExistExtend() {
-        try {
-            for (AbstractProcess<AbstractHost> process : this.getProcesses()) {
-                if (process.isExistExtend()) {
-                    return true;
-                }
-            }
-        } catch (Exception e) {
-            return false;
-        }
-        return false;
-    }
-
 }

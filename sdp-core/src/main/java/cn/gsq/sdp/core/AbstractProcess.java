@@ -2,12 +2,14 @@ package cn.gsq.sdp.core;
 
 import cn.gsq.common.config.GalaxySpringUtil;
 import cn.gsq.sdp.Blueprint;
+import cn.gsq.sdp.Operation;
 import cn.gsq.sdp.SdpPropertiesFinal;
 import cn.gsq.sdp.core.annotation.Available;
 import cn.gsq.sdp.core.annotation.Function;
 import cn.gsq.sdp.core.annotation.Process;
 import cn.hutool.core.collection.CollUtil;
 import cn.hutool.core.convert.Convert;
+import cn.hutool.core.util.ObjectUtil;
 import cn.hutool.core.util.StrUtil;
 import lombok.Getter;
 import lombok.extern.slf4j.Slf4j;
@@ -16,6 +18,7 @@ import java.io.FileNotFoundException;
 import java.util.*;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.function.Predicate;
+import java.util.stream.Collectors;
 
 /**
  * Project : sugon-data-platform
@@ -39,6 +42,8 @@ public abstract class AbstractProcess<T extends AbstractHost> extends AbstractAp
 
     private final String stop;   // 停止命令
 
+    private final boolean dynamic; // 是否可以扩容/缩容
+
     private final int order;    // 拍序
 
     private final int min;      // 最小部署数量
@@ -61,6 +66,7 @@ public abstract class AbstractProcess<T extends AbstractHost> extends AbstractAp
         this.mark = process.mark();
         this.start = process.start();
         this.stop = process.stop();
+        this.dynamic = process.dynamic();
         this.order = process.order();
         this.min = process.min();
         this.max = process.max();
@@ -168,6 +174,18 @@ public abstract class AbstractProcess<T extends AbstractHost> extends AbstractAp
     }
 
     /**
+     * @Description : 根据是否可以扩容来更新功能列表
+     **/
+    @Override
+    public List<Operation> getFunctions() {
+        List<Operation> operations = super.getFunctions();
+        if (this.isDynamic()) {
+            return operations;
+        }
+        return CollUtil.filter(operations, o -> !o.getId().equals("extend") && !o.getId().equals("shorten"));
+    }
+
+    /**
      * @Description : 启动进程
      * @note : ⚠️ 只启动进程宕机状态的主机 !
      **/
@@ -219,6 +237,44 @@ public abstract class AbstractProcess<T extends AbstractHost> extends AbstractAp
     }
 
     /**
+     * @Description : 进程扩容
+     **/
+    @Function(name = "进程扩容", id = "extend")
+    public synchronized void extend(List<String> hostnames) {
+        if (this.isDynamic()) {
+            for (String hostname : hostnames) {
+                AbstractHost host = this.hostManager.getHostByName(hostname);
+                if (ObjectUtil.isEmpty(host)) {
+                    throw new RuntimeException("主机“" + hostname + "”不存在。");
+                } else {
+                    this.extend(host);
+                }
+            }
+        } else {
+            throw new RuntimeException("进程“" + this.getName() + "”不支持扩容操作。");
+        }
+    }
+
+    /**
+     * @Description : 进程缩容
+     **/
+    @Function(name = "进程缩容", id = "shorten")
+    public synchronized void shorten(List<String> hostnames) {
+        if (isDynamic()) {
+            for (String hostname : hostnames) {
+                AbstractHost host = this.hostManager.getHostByName(hostname);
+                if (ObjectUtil.isEmpty(host)) {
+                    throw new RuntimeException("主机“" + hostname + "”不存在。");
+                } else {
+                    this.shorten(host);
+                }
+            }
+        } else {
+            throw new RuntimeException("进程“" + this.getName() + "”不支持缩容操作。");
+        }
+    }
+
+    /**
      * @Description : 是否可以启动
      * @note : ⚠️ 只要有一台节点宕机就可以启动 !
      **/
@@ -254,6 +310,38 @@ public abstract class AbstractProcess<T extends AbstractHost> extends AbstractAp
     @Available(fid = "restart")
     public boolean canRestart() {
         return true;
+    }
+
+    /**
+     * @Description : 是否允许扩容
+     **/
+    @Available(fid = "extend")
+    public synchronized boolean canExtend() {
+        boolean flag = false;
+        if (this.isDynamic()) {
+            List<String> unusables = CollUtil.map(this.getHosts(), AbstractHost::getName, true);
+            if (!this.getExcludes().isEmpty()) {
+                for (AbstractProcess<AbstractHost> pro : this.getExcludes()) {
+                    List<String> hosts_ = CollUtil.map(pro.getHosts(), AbstractHost::getName, true);
+                    unusables.addAll(hosts_);
+                }
+            }
+            List<AbstractHost> usables = CollUtil.filter(this.hostManager.getHosts(), host -> !unusables.contains(host.getName()));
+            flag = CollUtil.isNotEmpty(usables);
+        }
+        return flag;
+    }
+
+    /**
+     * @Description : 是否允许缩容
+     **/
+    @Available(fid = "shorten")
+    public synchronized boolean canShorten() {
+        boolean flag = false;
+        if (this.isDynamic()) {
+            flag = this.getHosts().size() > getMin();
+        }
+        return flag;
     }
 
     /**
@@ -374,10 +462,20 @@ public abstract class AbstractProcess<T extends AbstractHost> extends AbstractAp
     protected abstract void recover(AbstractProcess<T> process);
 
     /**
+     * @Description : 服务扩容
+     **/
+    protected abstract void extend(AbstractHost host);
+
+    /**
+     * @Description : 服务缩容
+     **/
+    protected abstract void shorten(AbstractHost host);
+
+    /**
      * @Description : 是否存在扩容/缩容
      */
-    public boolean isExistExtend() {
-        return false;
+    protected boolean isDynamic() {
+        return this.dynamic;
     }
 
     /**

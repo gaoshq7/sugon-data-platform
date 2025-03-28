@@ -54,7 +54,7 @@ public class SdpAutoConfigure {
     public BroadcastDriver getBroadcastDriver() {
         log.warn("未定义集群广播驱动：BroadcastDriver，将采用默认策略。");
         return (hostname, appEvent, serveName, msg) -> {
-            log.info("向{}主机发送{}服务{}信息：{}", hostname, serveName, appEvent.getCnname(), msg);
+            log.debug("向{}主机发送{}服务{}信息：{}", hostname, serveName, appEvent.getCnname(), msg);
         };
     }
 
@@ -65,12 +65,12 @@ public class SdpAutoConfigure {
         return new ConfigDriver() {
             @Override
             public void conform(ConfigBranch branch, List<ConfigItem> items) {
-                log.info("同步{}配置文件的{}分支", branch.getConfigName(), branch.getBranchName());
+                log.debug("同步{}配置文件的{}分支", branch.getConfigName(), branch.getBranchName());
             }
 
             @Override
             public List<ConfigItem> loadConfigItems(ConfigBranch branch) {
-                log.info("装载{}配置文件的{}分支", branch.getConfigName(), branch.getBranchName());
+                log.debug("装载{}配置文件的{}分支", branch.getConfigName(), branch.getBranchName());
                 return Collections.emptyList();
             }
 
@@ -86,7 +86,7 @@ public class SdpAutoConfigure {
 
             @Override
             public void destroy(ConfigBranch branch) {
-                log.info("销毁{}配置文件的{}分支", branch.getConfigName(), branch.getBranchName());
+                log.debug("销毁{}配置文件的{}分支", branch.getConfigName(), branch.getBranchName());
             }
 
             @Override
@@ -103,7 +103,7 @@ public class SdpAutoConfigure {
         return new HostDriver() {
             @Override
             public Set<HostInfo> loadHosts() {
-                log.info("装载了一套空主机列表");
+                log.debug("装载了一套空主机列表");
                 return Collections.emptySet();
             }
 
@@ -134,7 +134,7 @@ public class SdpAutoConfigure {
     public LogDriver getLogDriver() {
         log.warn("未定义日志输出驱动：LogDriver，将采用默认策略。");
         return (level, msg) -> {
-            log.info("输出{}日志: {}", level.getName(), msg);
+            log.debug("输出{}日志: {}", level.getName(), msg);
         };
     }
 
@@ -182,7 +182,7 @@ public class SdpAutoConfigure {
         return new ProcessDriver() {
             @Override
             public List<String> initHosts(String processname) {
-                log.info("{}进程装载了一个空主机列表", processname);
+                log.debug("{}进程装载了一个空主机列表", processname);
                 return Collections.emptyList();
             }
 

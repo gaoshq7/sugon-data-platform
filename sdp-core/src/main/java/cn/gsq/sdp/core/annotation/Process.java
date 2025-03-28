@@ -43,6 +43,8 @@ public @interface Process {
 
     String stop();      // 停止命令
 
+    boolean dynamic() default false; // 是否允许扩容
+
     String description();   // 进程描述信息
 
     int order();  // 列表排序使用
