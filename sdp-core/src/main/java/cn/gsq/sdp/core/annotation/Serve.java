@@ -36,6 +36,8 @@ public @interface Serve {
 
     String description();   // 服务描述信息
 
+    boolean all() default false;      // 所有主机是否都需要安装
+
     int order();      // 服务集合排列顺序（不可重复）
 
 }

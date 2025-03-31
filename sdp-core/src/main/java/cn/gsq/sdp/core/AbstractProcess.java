@@ -18,7 +18,6 @@ import java.io.FileNotFoundException;
 import java.util.*;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.function.Predicate;
-import java.util.stream.Collectors;
 
 /**
  * Project : sugon-data-platform
@@ -302,14 +301,6 @@ public abstract class AbstractProcess<T extends AbstractHost> extends AbstractAp
             }
         });
         return is.get();
-    }
-
-    /**
-     * @Description : 是否可以重启
-     **/
-    @Available(fid = "restart")
-    public boolean canRestart() {
-        return true;
     }
 
     /**

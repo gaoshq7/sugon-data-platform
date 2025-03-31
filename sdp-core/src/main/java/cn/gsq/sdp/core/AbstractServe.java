@@ -49,6 +49,8 @@ public abstract class AbstractServe extends AbstractApp {
     @Getter
     private volatile boolean locked = false;    // 服务是否被锁定（处于“安装中”、“卸载中”等临时状态）
 
+    private final boolean allMust;     // 是否所有主机都需要下载安装包
+
     @Getter
     private final int order;
 
@@ -60,6 +62,7 @@ public abstract class AbstractServe extends AbstractApp {
         Serve serve = this.getClass().getAnnotation(Serve.class);
         this.version = serve.version();
         this.handler = serve.handler();
+        this.allMust = serve.all();
         this.order = serve.order();
         this.serveType = serve.type().getName();
         this.serveLabels = CollUtil.toList(serve.labels());
@@ -112,7 +115,13 @@ public abstract class AbstractServe extends AbstractApp {
             // ⚠️ 安装第一步：初始化服务，执行服务初始化函数
             initServe(blueprint);
             // ⚠️ 安装第二步：下载安装包
-            download(blueprint.getAllProcessHostnames());
+            List<String> hostnames;
+            if (this.allMust) {
+                hostnames = CollUtil.map(this.hostManager.getHosts(), AbstractHost::getHostname, true);
+            } else {
+                hostnames = blueprint.getAllProcessHostnames();
+            }
+            download(hostnames);
             // ⚠️ 安装第三步：发送服务预安装广播
             super.broadcast(AppEvent.PREINSTALL, blueprint.getServename(), JSON.toJSONString(blueprint.getProcesses()));
             // ⚠️ 安装第四步：初始化服务的每一个配置文件
