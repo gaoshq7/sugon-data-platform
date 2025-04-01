@@ -249,6 +249,7 @@ public abstract class AbstractProcess<T extends AbstractHost> extends AbstractAp
                     this.extend(host);
                 }
             }
+            this.serve.restart();
         } else {
             throw new RuntimeException("进程“" + this.getName() + "”不支持扩容操作。");
         }
@@ -268,6 +269,7 @@ public abstract class AbstractProcess<T extends AbstractHost> extends AbstractAp
                     this.shorten(host);
                 }
             }
+            this.serve.restart();
         } else {
             throw new RuntimeException("进程“" + this.getName() + "”不支持缩容操作。");
         }
