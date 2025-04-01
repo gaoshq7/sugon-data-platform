@@ -1,6 +1,7 @@
 package cn.gsq.sdp.core;
 
 import cn.gsq.common.config.GalaxySpringUtil;
+import cn.gsq.sdp.RunLogLevel;
 import cn.gsq.sdp.driver.*;
 import lombok.Getter;
 
@@ -104,6 +105,18 @@ public abstract class AbstractBeansAssemble implements Thing {
         this.setServeDriver(GalaxySpringUtil.getBean(ServeDriver.class));
         this.setProcessDriver(GalaxySpringUtil.getBean(ProcessDriver.class));
         this.setResourceDriver(GalaxySpringUtil.getBean(ResourceDriver.class));
+    }
+
+    protected void info(String msg) {
+        this.logDriver.log(RunLogLevel.INFO, msg);
+    }
+
+    protected void warn(String msg) {
+        this.logDriver.log(RunLogLevel.WARN, msg);
+    }
+
+    protected void error(String msg) {
+        this.logDriver.log(RunLogLevel.ERROR, msg);
     }
 
 }

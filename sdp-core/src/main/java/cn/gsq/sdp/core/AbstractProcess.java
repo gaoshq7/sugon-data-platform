@@ -242,9 +242,11 @@ public abstract class AbstractProcess<T extends AbstractHost> extends AbstractAp
     public synchronized void extend(List<String> hostnames) {
         if (this.isDynamic()) {
             for (String hostname : hostnames) {
-                AbstractHost host = this.hostManager.getHostByName(hostname);
+                T host = this.hostManager.getExpectHostByName(hostname);
                 if (ObjectUtil.isEmpty(host)) {
-                    throw new RuntimeException("主机“" + hostname + "”不存在。");
+                    this.error("主机“" + hostname + "”不存在。");
+                } else if (this.hosts.contains(host)) {
+                    this.error("主机“" + hostname + "”已存在“" + this.getName() + "”进程。");
                 } else {
                     this.extend(host);
                 }
@@ -262,9 +264,11 @@ public abstract class AbstractProcess<T extends AbstractHost> extends AbstractAp
     public synchronized void shorten(List<String> hostnames) {
         if (isDynamic()) {
             for (String hostname : hostnames) {
-                AbstractHost host = this.hostManager.getHostByName(hostname);
+                T host = this.hostManager.getExpectHostByName(hostname);
                 if (ObjectUtil.isEmpty(host)) {
-                    throw new RuntimeException("主机“" + hostname + "”不存在。");
+                    this.error("主机“" + hostname + "”不存在。");
+                } else if (!this.hosts.contains(host)) {
+                    this.error("主机“" + hostname + "”不存在“" + this.getName() + "”进程。");
                 } else {
                     this.shorten(host);
                 }
