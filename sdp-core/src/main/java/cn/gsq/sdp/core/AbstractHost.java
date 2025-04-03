@@ -34,17 +34,21 @@ public abstract class AbstractHost extends AbstractExecutor {
 
     protected final String hostname;    //  节点域名
 
-    protected final List<HostGroupHandler> groups;    // 主机分组（同一主机可存在多个分组）
+    protected final List<HostGroup> groups;    // 主机分组（同一主机可存在多个分组）
 
     /**
      * @Description : ioc注册构造函数
      **/
-    public AbstractHost(String hostname, List<String> groups) {
+    protected AbstractHost(String hostname, List<String> groups) {
         this.hostname = hostname;
-        if (groups != null) {
-            this.groups = CollUtil.map(groups, HostGroupHandler::parse, true);
-        } else {
-            this.groups = new ArrayList<>();
+        this.groups = CollUtil.newArrayList();
+        if (CollUtil.isNotEmpty(groups)) {
+            for (String name : groups) {
+                HostGroup group = this.hostManager.getHostGroup(name);
+                if (group != null) {
+                    this.groups.add(group);
+                }
+            }
         }
     }
 
@@ -57,11 +61,26 @@ public abstract class AbstractHost extends AbstractExecutor {
         return this.hostname;
     }
 
+    @Override
+    protected void initProperty() {
+        throw new RuntimeException("主机实例不存在“initProperty”方法。");
+    }
+
+    @Override
+    protected void loadEnvResource() {
+        throw new RuntimeException("主机实例不存在“loadEnvResource”方法。");
+    }
+
+    @Override
+    protected void recover() {
+        throw new RuntimeException("主机实例不存在“recover”方法。");
+    }
+
     /**
      * @Description : 获取主机所在的分组名称集合
      **/
     public List<String> getGroupNames() {
-        return CollUtil.map(this.groups, HostGroupHandler::getName, true);
+        return CollUtil.map(this.groups, HostGroup::name, true);
     }
 
     /**
@@ -70,7 +89,14 @@ public abstract class AbstractHost extends AbstractExecutor {
      **/
     protected void updateGroups(List<String> groups) {
         this.groups.clear();
-        this.groups.addAll(CollUtil.map(groups, HostGroupHandler::parse, true));
+        if (CollUtil.isNotEmpty(groups)) {
+            for (String name : groups) {
+                HostGroup group = this.hostManager.getHostGroup(name);
+                if (group != null) {
+                    this.groups.add(group);
+                }
+            }
+        }
     }
 
     /**

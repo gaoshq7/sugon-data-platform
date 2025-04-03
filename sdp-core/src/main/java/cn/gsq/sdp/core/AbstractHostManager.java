@@ -3,8 +3,12 @@ package cn.gsq.sdp.core;
 import cn.gsq.common.config.GalaxySpringUtil;
 import cn.gsq.sdp.HostInfo;
 import cn.hutool.core.collection.CollUtil;
+import cn.hutool.core.collection.ListUtil;
+import cn.hutool.core.map.MapUtil;
 import cn.hutool.core.util.ObjectUtil;
+import cn.hutool.core.util.StrUtil;
 import com.google.common.collect.Lists;
+import lombok.Getter;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.context.annotation.Lazy;
@@ -28,6 +32,11 @@ public abstract class AbstractHostManager extends AbstractBeansAssemble implemen
     private List<AbstractHost> hosts;
 
     private Class<? extends AbstractHost> hostClass;
+
+    @Getter
+    private String mode;    // 当前主机分组模式
+
+    private final Map<String, List<HostGroup>> modes = MapUtil.newTreeMap(String::compareTo); // 全部主机分组
 
     /**
      * @Description : sdp系统启动时加载主机列表
@@ -69,6 +78,34 @@ public abstract class AbstractHostManager extends AbstractBeansAssemble implemen
                 log.error("{}主机不存在!", hostname);
             }
         }
+    }
+
+    /**
+     * @Description : 获取集群部署模式
+     **/
+    public List<String> getModes() {
+        return this.modes.keySet().stream().sorted().collect(Collectors.toList());
+    }
+
+    /**
+     * @Description : 获取当前主机分组
+     **/
+    public List<HostGroup> getHostGroups() {
+        List<HostGroup> groups;
+        if (StrUtil.isBlank(this.mode)) {
+            groups = Collections.emptyList();
+        } else {
+            groups = ListUtil.unmodifiable(this.modes.get(this.mode));
+        }
+        return groups;
+    }
+
+    /**
+     * @Description : 根据分组名称获取主机分组
+     * @note : ⚠️ 当没有调用过 setMode(String mode) 方法时啥也获取不到 !
+     **/
+    public HostGroup getHostGroup(String name) {
+        return CollUtil.findOne(this.getHostGroups(), g -> g.name().equals(name));
     }
 
     /**
@@ -125,8 +162,39 @@ public abstract class AbstractHostManager extends AbstractBeansAssemble implemen
         );
     }
 
+    /**
+     * @Description : 设置主机代理
+     **/
     protected void setHostClass(Class<? extends AbstractHost> hostClass) {
         this.hostClass = hostClass;
+    }
+
+    /**
+     * @Description : 重置主机分组策略
+     **/
+    protected void resetMode() {
+        this.mode = null;
+        this.modes.clear();
+    }
+
+    /**
+     * @Description : 设置主机分组模式
+     **/
+    protected void setMode(String mode) {
+        if(!this.modes.containsKey(mode)) {
+            throw new RuntimeException("“" + mode + "”分组模式不存在。");
+        }
+        this.mode = mode;
+    }
+
+    /**
+     * @Description : 添加主机分组策略
+     **/
+    protected void addMode(String mode, List<HostGroup> groups) {
+        if(CollUtil.isEmpty(groups)) {
+            throw new IllegalArgumentException(mode + "模式主机分组列表不可为空。");
+        }
+        this.modes.put(mode, groups);
     }
 
     @Override

@@ -4,11 +4,11 @@ import cn.gsq.common.config.GalaxySpringUtil;
 import cn.gsq.sdp.Blueprint;
 import cn.gsq.sdp.Operation;
 import cn.gsq.sdp.SdpPropertiesFinal;
-import cn.gsq.sdp.core.annotation.Available;
-import cn.gsq.sdp.core.annotation.Function;
+import cn.gsq.sdp.core.annotation.*;
 import cn.gsq.sdp.core.annotation.Process;
 import cn.hutool.core.collection.CollUtil;
 import cn.hutool.core.convert.Convert;
+import cn.hutool.core.util.EnumUtil;
 import cn.hutool.core.util.ObjectUtil;
 import cn.hutool.core.util.StrUtil;
 import lombok.Getter;
@@ -53,7 +53,9 @@ public abstract class AbstractProcess<T extends AbstractHost> extends AbstractAp
 
     private String home;    // 命令执行根目录
 
-    protected List<T> hosts = CollUtil.newArrayList();     // 进程所在的主机集合
+    protected List<T> hosts = CollUtil.newArrayList();     // 进程所在主机集合
+
+    protected List<HostGroup> groups = CollUtil.newArrayList(); // 不同模式下进程所在主机分组集合
 
     protected Set<AbstractProcess<AbstractHost>> companions = CollUtil.newHashSet();    // 伴生进程
 
@@ -62,6 +64,16 @@ public abstract class AbstractProcess<T extends AbstractHost> extends AbstractAp
     public AbstractProcess() {
         Process process = this.getClass().getAnnotation(Process.class);
         this.handler = process.handler();
+        // 初始化主机分组信息
+        for (Group group : process.groups()) {
+            Class clazz = group.mode();
+            try {
+                HostGroup hostGroup = (HostGroup) EnumUtil.fromString(clazz, group.name());
+                this.groups.add(hostGroup);
+            } catch (Exception e) {
+                log.error("“{}”主机分组不存在。", group.name(), e);
+            }
+        }
         this.mark = process.mark();
         this.start = process.start();
         this.stop = process.stop();
@@ -102,6 +114,13 @@ public abstract class AbstractProcess<T extends AbstractHost> extends AbstractAp
                 });
         this.home = this.sdpManager.getHome() + (process.home().startsWith(StrUtil.SLASH) ? process.home() : StrUtil.SLASH + process.home());
         this.logger = new Logger();
+    }
+
+    /**
+     * @Description : 添加进程覆盖的主机
+     **/
+    @Override
+    protected void loadEnvResource() {
         // 加载进程运行的主机（ ⚠️ 没有安装则返回空值）
         List<String> hostnames = this.processDriver.initHosts(this.getName());
         deployHosts(hostnames);
@@ -403,9 +422,15 @@ public abstract class AbstractProcess<T extends AbstractHost> extends AbstractAp
 
     /**
      * @Description : 获取进程的分组信息
+     * @Note : ⚠️ 同一个模式下，同一个进程只能存在一个主机组 !
      **/
-    public HostGroupHandler getHostGroup() {
-        return this.getClass().getAnnotation(Process.class).group();
+    public HostGroup getHostGroup() {
+        HostGroup group = null;
+        String mode = this.hostManager.getMode();
+        if (StrUtil.isNotBlank(mode)) {
+            group = CollUtil.findOne(this.groups, g -> g.mode().equals(mode));
+        }
+        return group;
     }
 
     /**

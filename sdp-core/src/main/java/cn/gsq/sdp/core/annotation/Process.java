@@ -1,9 +1,6 @@
 package cn.gsq.sdp.core.annotation;
 
-import cn.gsq.sdp.core.AbstractProcess;
-import cn.gsq.sdp.core.AbstractServe;
-import cn.gsq.sdp.core.HostGroupHandler;
-import cn.gsq.sdp.core.ProcessHandler;
+import cn.gsq.sdp.core.*;
 import org.springframework.stereotype.Component;
 
 import java.lang.annotation.*;
@@ -33,7 +30,7 @@ public @interface Process {
 
     ProcessHandler handler();  // 进程类型
 
-    HostGroupHandler group();   // 主机分组
+    Group[] groups();   // 主机分组
 
     String mark();       // 进程获取唯一标示（ps -ef | grep {} | grep -v grep | awk '{print $2}'）
 

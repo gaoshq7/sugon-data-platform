@@ -71,6 +71,13 @@ public class SdpEnvManager {
     }
 
     /**
+     * @Description : 获取主机分组模式列表
+     **/
+    public List<String> getModes() {
+        return ListUtil.unmodifiable(this.hostManager.getModes());
+    }
+
+    /**
      * @Description : 设置SDP基础环境
      * @Note : ⚠️ 使用前必须首先调用该方法 !
      **/
@@ -82,42 +89,75 @@ public class SdpEnvManager {
         // 初始化sdpmanager
         this.sdpManager.setVersion(version);
         this.sdpManager.setHome(SdpPropertiesFinal.SDP_BASE_PATH + StrUtil.SLASH + version);
-        // 初始化hostmanager
+        // 初始化hostmanager主机代理类
         this.hostManager.setHostClass(getHostClass(meta.getClasspath()));
+        // 初始化hostmanager主机分组策略
+        this.hostManager.resetMode();
+        List<HostGroup> groups = getAllGroups(meta.getClasspath());
+        Map<String, List<HostGroup>> gmap = groups.stream().collect(Collectors.groupingBy(HostGroup::mode));
+        gmap.forEach(this.hostManager::addMode);
         // 动态加载SDP Bean环境
-        //删除libraries下所有bean
         ApplicationContext context = GalaxySpringUtil.getContext();
-        if(ObjectUtil.isEmpty(context)){
+        if(ObjectUtil.isEmpty(context)) {
             GalaxySpringUtil.updateApplicationContext(this.applicationContext);
         }
-
+        // 删除已存在的libraries下所有bean
         String path = (String) GalaxySpringUtil.getGlobalArgument("sdp.root.classpath");
         String[] beanNames = GalaxySpringUtil.getContext().getBeanDefinitionNames();
         for (String name : beanNames) {
             if(name.startsWith(path))
                 GalaxySpringUtil.removeBeanByName(name);
         }
+        // 加载SDP所有组件
         GalaxySpringUtil.dynamicLoadPackage(
                 meta.getClasspath(),
                 BeanDefinition::getBeanClassName
         );
-        // 初始化Beans
-        initialize();
-    }
-
-    /**
-     * @Description : 初始化SDP环境
-     **/
-    private void initialize() {
         // 初始化所有依赖关系
         List<AbstractBeansAssemble> beans = GalaxySpringUtil.getBeans(AbstractBeansAssemble.class);
         for (AbstractBeansAssemble bean : beans) {
             bean.setDrivers();
         }
-        // 加载主机列表
+        // 初始化所有sdp组件的固有属性
+        List<AbstractSdpComponent> components = GalaxySpringUtil.getBeans(AbstractSdpComponent.class);
+        for (AbstractSdpComponent component : components) {
+            component.initProperty();
+        }
+        // 装配 SdpManager
+        this.assemble();
+    }
+
+    /**
+     * @Description : 设置主机分组模式
+     **/
+    public void setMode(String mode) {
+        this.hostManager.setMode(mode);
+    }
+
+    /**
+     * @Description : 加载集群环境资源
+     * @Note : ⚠️ 使用前必须先调用“setMode”方法 !
+     **/
+    public void loadEnvResource() {
+        // 加载所有主机实例
         this.hostManager.initHosts();
+        List<AbstractSdpComponent> components = GalaxySpringUtil.getBeans(AbstractSdpComponent.class);
+        for (AbstractSdpComponent component : components) {
+            component.loadEnvResource();
+        }
+    }
+
+    /**
+     * @Description : 初始化SDP环境
+     **/
+    private void assemble() {
         // 初始化配置文件
-        this.sdpManager.setConfigs(initConfigs());
+        this.sdpManager.setConfigs(
+                GalaxySpringUtil.getBeanNamesByAnno(Config.class)
+                        .stream()
+                        .map(object -> (AbstractConfig) object)
+                        .collect(Collectors.groupingBy(AbstractConfig::getServe))
+        );
         // 配置文件排序
         this.sdpManager.configs.forEach((key, value) ->
                 this.sdpManager.configs.put(key, value.stream()
@@ -125,7 +165,12 @@ public class SdpEnvManager {
                         .collect(Collectors.toList()))
         );
         // 初始化进程
-        this.sdpManager.setProcesses(initProcesses());
+        this.sdpManager.setProcesses(
+                GalaxySpringUtil.getBeanNamesByAnno(Process.class)
+                        .stream()
+                        .map(object -> (AbstractProcess<AbstractHost>) object)
+                        .collect(Collectors.groupingBy(AbstractProcess::getServe))
+        );
         // 进程排序
         this.sdpManager.processes.forEach((key, value) ->
                 this.sdpManager.processes.put(key, value.stream()
@@ -133,51 +178,10 @@ public class SdpEnvManager {
                         .collect(Collectors.toList()))
         );
         // 初始化服务列表
-        this.sdpManager.serves = initServes()
+        this.sdpManager.serves = GalaxySpringUtil.getBeanNamesByAnno(Serve.class)
                 .stream()
+                .map(object -> (AbstractServe) object)
                 .sorted(Comparator.comparing(AbstractServe::getOrder))
-                .collect(Collectors.toList());
-    }
-
-    /**
-     * @Description : 初始化配置文件
-     **/
-    private Map<AbstractServe, List<AbstractConfig>> initConfigs() {
-        return GalaxySpringUtil.getBeanNamesByAnno(Config.class)
-                .stream()
-                .map(object -> {
-                    AbstractConfig config = (AbstractConfig) object;
-                    config.initProperty();
-                    return config;
-                })
-                .collect(Collectors.groupingBy(AbstractConfig::getServe));
-    }
-
-    /**
-     * @Description : 初始化进程
-     **/
-    private Map<AbstractServe, List<AbstractProcess<AbstractHost>>> initProcesses() {
-        return GalaxySpringUtil.getBeanNamesByAnno(Process.class)
-                .stream()
-                .map(object -> {
-                    AbstractProcess<AbstractHost> process = (AbstractProcess) object;
-                    process.initProperty();
-                    return process;
-                })
-                .collect(Collectors.groupingBy(AbstractProcess::getServe));
-    }
-
-    /**
-     * @Description : 初始化服务
-     **/
-    private List<AbstractServe> initServes() {
-        return GalaxySpringUtil.getBeanNamesByAnno(Serve.class)
-                .stream()
-                .map(object -> {
-                    AbstractServe serve = (AbstractServe) object;
-                    serve.initProperty();
-                    return serve;
-                })
                 .collect(Collectors.toList());
     }
 
@@ -217,6 +221,25 @@ public class SdpEnvManager {
             log.error("加载主机代理失败 : {}", "SDP环境中不存在主机代理类 ... ");
         }
         return (Class<? extends AbstractHost>) CollUtil.getFirst(classes);
+    }
+
+    /**
+     * @Description : 获取所有模式下的主机分组
+     **/
+    private List<HostGroup> getAllGroups(String classpath) {
+        List<HostGroup> groups = CollUtil.newArrayList();
+        Reflections reflections = new Reflections(classpath);
+        Set<Class<?>> classes = CollUtil.filter(
+                reflections.getTypesAnnotatedWith(Mode.class),
+                c -> c.isEnum() && HostGroup.class.isAssignableFrom(c)
+        );
+        for (Class<?> aClass : classes) {
+            Object[] group = aClass.getEnumConstants();
+            for (Object o : group) {
+                groups.add((HostGroup) o);
+            }
+        }
+        return groups;
     }
 
     @Setter

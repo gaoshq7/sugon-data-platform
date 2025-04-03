@@ -30,7 +30,7 @@ import java.util.stream.Collectors;
  * @note : It's not technology, it's art !
  **/
 @Slf4j
-public abstract class AbstractConfig extends AbstractBeansAssemble implements Configuration {
+public abstract class AbstractConfig extends AbstractSdpComponent implements Configuration {
 
     /*
      *  配置文件加载流程：
@@ -51,32 +51,28 @@ public abstract class AbstractConfig extends AbstractBeansAssemble implements Co
     @Getter
     private String configType;     //  配置文件类型 xml  text cfg..
 
+    @Getter
+    private int order;      // 配置文件列表排序
+
     private final Map<String, Branch> branches = MapUtil.newHashMap();     // 所有配置文件的分支
 
-    private final Map<String, List<ConfigItem>> dictionaryMap= MapUtil.newHashMap(); // 所有配置文件的字典
+    private final Map<String, List<ConfigItem>> dictionaryMap = MapUtil.newHashMap(); // 所有配置文件的字典
 
-    private final Map<String,List<ConfigItem>> nonDictionaryMap= MapUtil.newHashMap(); // 所有没有字典的配置文件
+    private final Map<String,List<ConfigItem>> nonDictionaryMap = MapUtil.newHashMap(); // 所有没有字典的配置文件
 
     /**
      * @Description : 系统启动时初始化注解中的属性
      * @note : ⚠️ 程序启动配置文件的入口 !
      **/
+    @Override
     protected void initProperty() {
+        // 有分支：配置文件名称弃掉后缀名/分支名称.后缀名；没有分支：配置文件名称.后缀名
         Config config = this.getClass().getAnnotation(Config.class);
         this.configType = config.type();
         this.serve = GalaxySpringUtil.getBean(config.master());
-        this.path = sdpManager.getHome() + (config.path().startsWith(StrUtil.SLASH) ? config.path() : StrUtil.SLASH + config.path());
+        this.path = this.sdpManager.getHome() + (config.path().startsWith(StrUtil.SLASH) ? config.path() : StrUtil.SLASH + config.path());
         this.description = config.description();
-        initBranchs();  // 加载配置文件分支
-    }
-
-    /**
-     * @Description : 程序启动初始化配置文件分支
-     * @note : ⚠️ 只有在程序启动时运行一次 !
-     **/
-    private void initBranchs() {
-        // 有分支：配置文件名称弃掉后缀名/分支名称.后缀名；没有分支：配置文件名称.后缀名
-        Config config = this.getClass().getAnnotation(Config.class);
+        this.order = config.order();
         // 获取配置文件在jar包中的根目录
         StrBuilder builder = StrBuilder.create();
         builder.append(StrUtil.removeAll(this.sdpManager.getVersion(), StrUtil.DOT))
@@ -94,12 +90,21 @@ public abstract class AbstractConfig extends AbstractBeansAssemble implements Co
         if(CollUtil.isEmpty(branches)) {
             branches.add(new Branch(SdpPropertiesFinal.DEFAULT_CHAR, builder + getName()));
         }
-        // 初始化分支
-        branches.forEach(branch -> {
+        for (Branch branch : branches) {
+            this.branches.put(branch.getName(), branch);
+        }
+    }
+
+    /**
+     * @Description : 程序启动初始化配置文件分支
+     * @note : ⚠️ 只有在程序启动时运行一次 !
+     **/
+    @Override
+    protected void loadEnvResource() {
+        this.branches.forEach((name, branch) -> {
             branch.initContent();   // 初始化分支内容
-            this.branches.put(branch.getName(), branch);    // 分支写入内存
-            this.dictionaryMap.put(branch.getName(),branch.getConfigDictionary());//字典写入内存
-            this.nonDictionaryMap.put(branch.getName(),branch.getNonConfigDictionary());//不是字典的也写入内存
+            this.dictionaryMap.put(name, branch.getConfigDictionary());     // 字典写入内存
+            this.nonDictionaryMap.put(name, branch.getNonConfigDictionary());   // 不是字典的也写入内存
         });
     }
 
@@ -130,6 +135,7 @@ public abstract class AbstractConfig extends AbstractBeansAssemble implements Co
     /**
      * @Description : 卸载配置文件
      **/
+    @Override
     protected void recover() {
         for(Branch branch : this.branches.values()) {
             branch.destroy();
@@ -330,14 +336,6 @@ public abstract class AbstractConfig extends AbstractBeansAssemble implements Co
      **/
     public String getServeName(){
         return ObjectUtil.isNull(this.serve) ? null : this.serve.getName();
-    }
-
-    /**
-     * @Description : 获取配置文件出场顺序
-     * @note : ⚠️ 排序使用，无其他意义 !
-     **/
-    public int getOrder() {
-        return this.getClass().getAnnotation(Config.class).order();
     }
 
     /**

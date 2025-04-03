@@ -1,5 +1,7 @@
 package cn.gsq.sdp.core;
 
+import cn.gsq.sdp.core.annotation.Mode;
+
 /**
  * Project : sugon-data-platform
  * Class : cn.gsq.sdp.core.HostGroup
@@ -17,5 +19,9 @@ public interface HostGroup {
     int max();      // 最大部署规模
 
     String description();   // 分组描述信息
+
+    default String mode() {
+        return this.getClass().getAnnotation(Mode.class).value();
+    }
 
 }

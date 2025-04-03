@@ -1,7 +1,5 @@
 package cn.gsq.sdp.core;
 
-import cn.gsq.common.config.GalaxySpringUtil;
-import cn.gsq.sdp.core.annotation.Process;
 import cn.hutool.core.collection.CollUtil;
 import cn.hutool.core.map.MapUtil;
 import lombok.AllArgsConstructor;
@@ -10,7 +8,6 @@ import lombok.extern.slf4j.Slf4j;
 
 import java.util.HashMap;
 import java.util.List;
-import java.util.Objects;
 
 /**
  * Project : sugon-data-platform
@@ -62,22 +59,6 @@ public enum HostGroupHandler {
             return groups.get(name);
         }
         return null;
-    }
-
-    /**
-     * @Description : 根据当前分组获取进程集合
-     * @Note : ⚠️ 不可在系统初始化的时候调用 !
-     **/
-    public List<AbstractProcess> getProcesses() {
-        if (this.processes.isEmpty()) {
-            this.processes.addAll(
-                    CollUtil.filter(
-                            GalaxySpringUtil.getBeans(AbstractProcess.class),
-                            process -> Objects.equals(process.getClass().getAnnotation(Process.class).group().name, this.name)
-                    )
-            );
-        }
-        return this.processes;
     }
 
 }

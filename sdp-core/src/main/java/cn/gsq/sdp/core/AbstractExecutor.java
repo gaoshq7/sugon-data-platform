@@ -23,7 +23,7 @@ import java.util.stream.Collectors;
  * @note : It's not technology, it's art !
  **/
 @Slf4j
-public abstract class AbstractExecutor extends AbstractBeansAssemble implements Action {
+public abstract class AbstractExecutor extends AbstractSdpComponent implements Action {
 
     protected final List<Operation> functions;   // 功能列表
 

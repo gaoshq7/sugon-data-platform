@@ -104,6 +104,11 @@ public abstract class AbstractServe extends AbstractApp {
         }
     }
 
+    @Override
+    public void loadEnvResource() {
+        // 服务的属性都是固定的，没有与环境相关的。
+    }
+
     /**
      * @Description : 服务安装
      * @Note : ⚠️ 安装过程任意一步出现异常，异常抛出、安装终止；第五步需将所有的进程安装都跑一遍，如遇异常则抛出第一个 !
