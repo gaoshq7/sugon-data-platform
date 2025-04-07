@@ -50,6 +50,7 @@ public abstract class AbstractHostManager extends AbstractBeansAssemble implemen
     /**
      * @Description : 添加主机
      **/
+    @Override
     public void addHosts(HostInfo ... hostInfos) {
         registerHost(hostInfos);
     }
@@ -57,6 +58,7 @@ public abstract class AbstractHostManager extends AbstractBeansAssemble implemen
     /**
      * @Description : 删除主机
      **/
+    @Override
     public void removeHosts(String ... hostnames) {
         boolean flag = this.hostDriver.removeHostsCallback(hostnames);
         if (flag) {
@@ -68,6 +70,7 @@ public abstract class AbstractHostManager extends AbstractBeansAssemble implemen
      * @Description : 修改主机分组信息
      * @Note : ⚠️ 整体覆盖 !
      **/
+    @Override
     public void updateHostGroups(String hostname, List<String> groups) {
         boolean flag = this.hostDriver.updateHostGroups(this.getName(), groups);
         if (flag) {
@@ -83,13 +86,14 @@ public abstract class AbstractHostManager extends AbstractBeansAssemble implemen
     /**
      * @Description : 获取集群部署模式
      **/
-    public List<String> getModes() {
+    protected List<String> getModes() {
         return this.modes.keySet().stream().sorted().collect(Collectors.toList());
     }
 
     /**
      * @Description : 获取当前主机分组
      **/
+    @Override
     public List<HostGroup> getHostGroups() {
         List<HostGroup> groups;
         if (StrUtil.isBlank(this.mode)) {
@@ -112,6 +116,7 @@ public abstract class AbstractHostManager extends AbstractBeansAssemble implemen
      * @Description : 获取所有主机
      * @note : ⚠️ 对外不可修改 !
      **/
+    @Override
     public List<AbstractHost> getHosts() {
         List<AbstractHost> hosts = Lists.newArrayList();
         if(!CollUtil.isEmpty(this.hosts)) {
@@ -126,6 +131,7 @@ public abstract class AbstractHostManager extends AbstractBeansAssemble implemen
     /**
      * @Description : 根据主机名获取主机
      **/
+    @Override
     public AbstractHost getHostByName(String name) {
         return CollUtil.findOne(hosts, host -> host.getName().equals(name));
     }
