@@ -46,7 +46,7 @@ public abstract class AbstractConfig extends AbstractSdpComponent implements Con
     private final String name;    // 配置文件名称
 
     @Getter
-    private final String path;    //  配置文件需要放置的地址（ ⚠️ 分支里面必有该地址）
+    private String path;    //  配置文件需要放置的地址（ ⚠️ 分支里面必有该地址）
 
     @Getter
     private final String description;     //  配置文件描述信息
@@ -65,19 +65,26 @@ public abstract class AbstractConfig extends AbstractSdpComponent implements Con
 
     protected AbstractConfig() {
         Config config = this.getClass().getAnnotation(Config.class);
-        AbstractSdpManager manager = GalaxySpringUtil.getBean(AbstractSdpManager.class);
         // 取路径最后一个文件名作为配置文件名称
         String[] pathAndFile = this.getClass().getAnnotation(Config.class).path().split(StrUtil.SLASH);
         this.name = pathAndFile[pathAndFile.length - 1];
         this.configType = config.type();
         this.description = config.description();
         this.order = config.order();
-        this.path = manager.getHome() + (config.path().startsWith(StrUtil.SLASH) ? config.path() : StrUtil.SLASH + config.path());
+    }
+
+    @Override
+    protected void setDrivers() {
+        super.setDrivers();
+        Config config = this.getClass().getAnnotation(Config.class);
+        this.serve = GalaxySpringUtil.getBean(config.master());
+        this.path = this.sdpManager.getHome() + (config.path().startsWith(StrUtil.SLASH) ? config.path() : StrUtil.SLASH + config.path());
         // 创建配置文件分支
         // 获取配置文件在jar包中的根目录
+        // 有分支：配置文件名称弃掉后缀名/分支名称.后缀名；没有分支：配置文件名称.后缀名
         StrBuilder builder = StrBuilder.create();
-        builder.append(StrUtil.removeAll(manager.getVersion(), StrUtil.DOT))
-                .append(StrUtil.SLASH).append(this.getServeNameByClass())
+        builder.append(StrUtil.removeAll(this.sdpManager.getVersion(), StrUtil.DOT))
+                .append(StrUtil.SLASH).append(this.getServeName())
                 .append(StrUtil.SLASH);
         // 获取分支名称
         String[] bnames = config.branches();
@@ -97,30 +104,12 @@ public abstract class AbstractConfig extends AbstractSdpComponent implements Con
     }
 
     /**
-     * @Description : 在serve调用initProperty()时判断是否属于某个服务
-     **/
-    protected boolean isBelong(Class<? extends AbstractServe> clazz) {
-        Config config = this.getClass().getAnnotation(Config.class);
-        return config.master() == clazz;
-    }
-
-    /**
-     * @Description : 在serve调用initProperty()时获取所属服务名称
-     **/
-    protected String getServeNameByClass() {
-        Config config = this.getClass().getAnnotation(Config.class);
-        return config.master().getSimpleName();
-    }
-
-    /**
      * @Description : 系统启动时初始化注解中的属性
      * @note : ⚠️ 程序启动配置文件的入口 !
      **/
     @Override
     protected void initProperty() {
-        // 有分支：配置文件名称弃掉后缀名/分支名称.后缀名；没有分支：配置文件名称.后缀名
-        Config config = this.getClass().getAnnotation(Config.class);
-        this.serve = GalaxySpringUtil.getBean(config.master());
+
     }
 
     /**

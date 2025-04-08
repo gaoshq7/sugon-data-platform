@@ -84,21 +84,12 @@ public abstract class AbstractProcess<T extends AbstractHost> extends AbstractAp
         this.description = process.description();
     }
 
-    /**
-     * @Description : 在serve调用initProperty()时判断是否属于某个服务
-     **/
-    protected boolean isBelong(Class<? extends AbstractServe> clazz) {
-        Process process = this.getClass().getAnnotation(Process.class);
-        return process.master() == clazz;
-    }
-
-    /**
-     * @Description : 系统启动时初始化进程属性
-     **/
     @Override
-    public void initProperty() {
+    protected void setDrivers() {
+        super.setDrivers();
         Process process = this.getClass().getAnnotation(Process.class);
         this.serve = GalaxySpringUtil.getBean(process.master());
+        this.home = this.sdpManager.getHome() + (process.home().startsWith(StrUtil.SLASH) ? process.home() : StrUtil.SLASH + process.home());
         // 添加依赖与被依赖关系
         Arrays.stream(process.depends())
                 .forEach(depend -> {
@@ -120,8 +111,15 @@ public abstract class AbstractProcess<T extends AbstractHost> extends AbstractAp
                     this.excludes.add(excludeProcess);
                     excludeProcess.getExcludes().add((AbstractProcess<AbstractHost>) this);
                 });
-        this.home = this.sdpManager.getHome() + (process.home().startsWith(StrUtil.SLASH) ? process.home() : StrUtil.SLASH + process.home());
         this.logger = new Logger();
+    }
+
+    /**
+     * @Description : 系统启动时初始化进程属性
+     **/
+    @Override
+    public void initProperty() {
+
     }
 
     /**

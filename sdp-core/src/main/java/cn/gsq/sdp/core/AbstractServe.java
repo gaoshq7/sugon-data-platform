@@ -85,13 +85,13 @@ public abstract class AbstractServe extends AbstractApp {
                 });
         // 添加服务的配置文件
         this.configs = GalaxySpringUtil.getBeans(AbstractConfig.class).stream()
-                .filter(config -> config.isBelong(this.getClass()))
+                .filter(config -> config.getServeName().equals(this.getName()))
                 .collect(Collectors.toList());
         // 配置文件排序
         this.configs.sort(Comparator.comparing(AbstractConfig::getOrder));
         // 添加服务的进程
         this.processes = GalaxySpringUtil.getBeans(AbstractProcess.class).stream()
-                .filter(process -> process.isBelong(this.getClass()))
+                .filter(process -> process.getServename().equals(this.getName()))
                 .map(process -> (AbstractProcess<AbstractHost>) process)
                 .collect(Collectors.toList());
         // 进程排序
@@ -302,7 +302,7 @@ public abstract class AbstractServe extends AbstractApp {
                 this.sdpManager.getHome() + StrUtil.C_SLASH + split.get(3) + StrUtil.C_SLASH + split.get(1);
         // 找到相应的配置文件
         AbstractConfig config = CollUtil.findOne(GalaxySpringUtil.getBeans(AbstractConfig.class),
-                c -> c.getServeNameByClass().equals(split.get(0)) && c.getName().equals(split.get(1)));
+                c -> c.getServeName().equals(split.get(0)) && c.getName().equals(split.get(1)));
         // 添加分支配置文件地址
         if(ObjectUtil.isNotNull(config)) {
             config.addPathsToConfig(split.get(2), file);
