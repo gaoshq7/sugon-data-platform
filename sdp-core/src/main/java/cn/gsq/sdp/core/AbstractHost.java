@@ -63,17 +63,14 @@ public abstract class AbstractHost extends AbstractExecutor {
 
     @Override
     protected void initProperty() {
-        throw new RuntimeException("主机实例不存在“initProperty”方法。");
     }
 
     @Override
     protected void loadEnvResource() {
-        throw new RuntimeException("主机实例不存在“loadEnvResource”方法。");
     }
 
     @Override
     protected void recover() {
-        throw new RuntimeException("主机实例不存在“recover”方法。");
     }
 
     /**
