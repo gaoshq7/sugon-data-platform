@@ -58,7 +58,7 @@ public abstract class AbstractServe extends AbstractApp {
 
     /* ⚠️ 以下是服务相关接口 */
 
-    public AbstractServe() {
+    protected AbstractServe() {
         Serve serve = this.getClass().getAnnotation(Serve.class);
         this.version = serve.version();
         this.handler = serve.handler();
@@ -74,7 +74,7 @@ public abstract class AbstractServe extends AbstractApp {
      * @note : ⚠️ 系统启动入口 !
      **/
     @Override
-    public void initProperty() {
+    protected void initProperty() {
         Serve serve = this.getClass().getAnnotation(Serve.class);
         // 添加依赖与被依赖关系
         Arrays.stream(serve.depends())
@@ -85,13 +85,13 @@ public abstract class AbstractServe extends AbstractApp {
                 });
         // 添加服务的配置文件
         this.configs = GalaxySpringUtil.getBeans(AbstractConfig.class).stream()
-                .filter(config -> config.getServe().getName().equals(getName()))
+                .filter(config -> config.isBelong(this.getClass()))
                 .collect(Collectors.toList());
         // 配置文件排序
         this.configs.sort(Comparator.comparing(AbstractConfig::getOrder));
         // 添加服务的进程
         this.processes = GalaxySpringUtil.getBeans(AbstractProcess.class).stream()
-                .filter(process -> process.getServe().getName().equals(getName()))
+                .filter(process -> process.isBelong(this.getClass()))
                 .map(process -> (AbstractProcess<AbstractHost>) process)
                 .collect(Collectors.toList());
         // 进程排序
@@ -105,7 +105,7 @@ public abstract class AbstractServe extends AbstractApp {
     }
 
     @Override
-    public void loadEnvResource() {
+    protected void loadEnvResource() {
         // 服务的属性都是固定的，没有与环境相关的。
     }
 
@@ -197,7 +197,7 @@ public abstract class AbstractServe extends AbstractApp {
         // ⚠️ 还原第三步：还原配置文件
         this.configs.forEach(AbstractConfig::recover);
         // ⚠️ 还原第四步：调用服务层卸载函数
-        recover(this);
+        afterRecover();
         // ⚠️ 还原第五步：发送服务已卸载广播
         super.broadcast(AppEvent.UNINSTALLED, this.getName(), null);
         //todo 修改resourceplan
@@ -302,7 +302,7 @@ public abstract class AbstractServe extends AbstractApp {
                 this.sdpManager.getHome() + StrUtil.C_SLASH + split.get(3) + StrUtil.C_SLASH + split.get(1);
         // 找到相应的配置文件
         AbstractConfig config = CollUtil.findOne(GalaxySpringUtil.getBeans(AbstractConfig.class),
-                c -> c.getServe().getName().equals(split.get(0)) && c.getName().equals(split.get(1)));
+                c -> c.getServeNameByClass().equals(split.get(0)) && c.getName().equals(split.get(1)));
         // 添加分支配置文件地址
         if(ObjectUtil.isNotNull(config)) {
             config.addPathsToConfig(split.get(2), file);
@@ -389,22 +389,28 @@ public abstract class AbstractServe extends AbstractApp {
     protected void afterInstall(Blueprint.Serve blueprint) {}
 
     /**
+     * 判断服务是否真的可用
+     */
+    public RpcRespond<String> isServeAvailable() {
+        RpcRespond<String> respond = new RpcRespond<>(true,"检测通过","检测通过");
+        if (!this.isAvailable()) {
+            new RpcRespond<>(false,"服务存在异常","某些进程不可用");
+        }
+        return respond;
+    }
+
+    /**
+     * @Description : 所有进程还原后服务的操作
+     */
+    protected void afterRecover() {}
+
+    /**
      * @Description : 获取服务的webUI
      * @note : ⚠️ 由下游服务进行覆盖 !
      **/
     public List<WebUI> getWebUIs(){
         return null;
     }
-
-    /**
-     * @Description : 卸载服务
-     **/
-    protected abstract void recover(AbstractServe serve);
-
-    /**
-     * 判断服务是否真的可用
-     */
-    public abstract RpcRespond<String> isServeAvailable();
 
     /* ⚠️ 以下是配置文件相关接口 */
 

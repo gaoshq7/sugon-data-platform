@@ -61,7 +61,7 @@ public abstract class AbstractProcess<T extends AbstractHost> extends AbstractAp
 
     protected Set<AbstractProcess<AbstractHost>> excludes = CollUtil.newHashSet();    // 互斥进程
 
-    public AbstractProcess() {
+    protected AbstractProcess() {
         Process process = this.getClass().getAnnotation(Process.class);
         this.handler = process.handler();
         // 初始化主机分组信息
@@ -82,6 +82,14 @@ public abstract class AbstractProcess<T extends AbstractHost> extends AbstractAp
         this.min = process.min();
         this.max = process.max();
         this.description = process.description();
+    }
+
+    /**
+     * @Description : 在serve调用initProperty()时判断是否属于某个服务
+     **/
+    protected boolean isBelong(Class<? extends AbstractServe> clazz) {
+        Process process = this.getClass().getAnnotation(Process.class);
+        return process.master() == clazz;
     }
 
     /**

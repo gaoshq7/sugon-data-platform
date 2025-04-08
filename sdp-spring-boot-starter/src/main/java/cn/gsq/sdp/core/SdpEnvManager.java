@@ -3,7 +3,6 @@ package cn.gsq.sdp.core;
 import cn.gsq.common.config.GalaxySpringUtil;
 import cn.gsq.sdp.SdpPropertiesFinal;
 import cn.gsq.sdp.core.annotation.*;
-import cn.gsq.sdp.core.annotation.Process;
 import cn.hutool.core.collection.CollUtil;
 import cn.hutool.core.collection.ListUtil;
 import cn.hutool.core.convert.Convert;
@@ -124,7 +123,13 @@ public class SdpEnvManager {
             component.initProperty();
         }
         // 装配 SdpManager
-        this.assemble();
+        this.sdpManager.setServes(
+                GalaxySpringUtil.getBeanNamesByAnno(Serve.class)
+                        .stream()
+                        .map(object -> (AbstractServe) object)
+                        .sorted(Comparator.comparing(AbstractServe::getOrder))
+                        .collect(Collectors.toList())
+        );
     }
 
     /**
@@ -145,44 +150,6 @@ public class SdpEnvManager {
         for (AbstractSdpComponent component : components) {
             component.loadEnvResource();
         }
-    }
-
-    /**
-     * @Description : 初始化SDP环境
-     **/
-    private void assemble() {
-        // 初始化配置文件
-        this.sdpManager.setConfigs(
-                GalaxySpringUtil.getBeanNamesByAnno(Config.class)
-                        .stream()
-                        .map(object -> (AbstractConfig) object)
-                        .collect(Collectors.groupingBy(AbstractConfig::getServe))
-        );
-        // 配置文件排序
-        this.sdpManager.configs.forEach((key, value) ->
-                this.sdpManager.configs.put(key, value.stream()
-                        .sorted(Comparator.comparing(AbstractConfig::getOrder))
-                        .collect(Collectors.toList()))
-        );
-        // 初始化进程
-        this.sdpManager.setProcesses(
-                GalaxySpringUtil.getBeanNamesByAnno(Process.class)
-                        .stream()
-                        .map(object -> (AbstractProcess<AbstractHost>) object)
-                        .collect(Collectors.groupingBy(AbstractProcess::getServe))
-        );
-        // 进程排序
-        this.sdpManager.processes.forEach((key, value) ->
-                this.sdpManager.processes.put(key, value.stream()
-                        .sorted(Comparator.comparing(AbstractProcess::getOrder))
-                        .collect(Collectors.toList()))
-        );
-        // 初始化服务列表
-        this.sdpManager.serves = GalaxySpringUtil.getBeanNamesByAnno(Serve.class)
-                .stream()
-                .map(object -> (AbstractServe) object)
-                .sorted(Comparator.comparing(AbstractServe::getOrder))
-                .collect(Collectors.toList());
     }
 
     /**

@@ -43,16 +43,19 @@ public abstract class AbstractConfig extends AbstractSdpComponent implements Con
     private transient AbstractServe serve;    // 所在服务
 
     @Getter
-    private String path;    //  配置文件需要放置的地址（ ⚠️ 分支里面必有该地址）
+    private final String name;    // 配置文件名称
 
     @Getter
-    private String description;     //  配置文件描述信息
+    private final String path;    //  配置文件需要放置的地址（ ⚠️ 分支里面必有该地址）
 
     @Getter
-    private String configType;     //  配置文件类型 xml  text cfg..
+    private final String description;     //  配置文件描述信息
 
     @Getter
-    private int order;      // 配置文件列表排序
+    private final String configType;     //  配置文件类型 xml  text cfg..
+
+    @Getter
+    private final int order;      // 配置文件列表排序
 
     private final Map<String, Branch> branches = MapUtil.newHashMap();     // 所有配置文件的分支
 
@@ -60,23 +63,21 @@ public abstract class AbstractConfig extends AbstractSdpComponent implements Con
 
     private final Map<String,List<ConfigItem>> nonDictionaryMap = MapUtil.newHashMap(); // 所有没有字典的配置文件
 
-    /**
-     * @Description : 系统启动时初始化注解中的属性
-     * @note : ⚠️ 程序启动配置文件的入口 !
-     **/
-    @Override
-    protected void initProperty() {
-        // 有分支：配置文件名称弃掉后缀名/分支名称.后缀名；没有分支：配置文件名称.后缀名
+    protected AbstractConfig() {
         Config config = this.getClass().getAnnotation(Config.class);
+        AbstractSdpManager manager = GalaxySpringUtil.getBean(AbstractSdpManager.class);
+        // 取路径最后一个文件名作为配置文件名称
+        String[] pathAndFile = this.getClass().getAnnotation(Config.class).path().split(StrUtil.SLASH);
+        this.name = pathAndFile[pathAndFile.length - 1];
         this.configType = config.type();
-        this.serve = GalaxySpringUtil.getBean(config.master());
-        this.path = this.sdpManager.getHome() + (config.path().startsWith(StrUtil.SLASH) ? config.path() : StrUtil.SLASH + config.path());
         this.description = config.description();
         this.order = config.order();
+        this.path = manager.getHome() + (config.path().startsWith(StrUtil.SLASH) ? config.path() : StrUtil.SLASH + config.path());
+        // 创建配置文件分支
         // 获取配置文件在jar包中的根目录
         StrBuilder builder = StrBuilder.create();
-        builder.append(StrUtil.removeAll(this.sdpManager.getVersion(), StrUtil.DOT))
-                .append(StrUtil.SLASH).append(getServe().getName())
+        builder.append(StrUtil.removeAll(manager.getVersion(), StrUtil.DOT))
+                .append(StrUtil.SLASH).append(this.getServeNameByClass())
                 .append(StrUtil.SLASH);
         // 获取分支名称
         String[] bnames = config.branches();
@@ -93,6 +94,33 @@ public abstract class AbstractConfig extends AbstractSdpComponent implements Con
         for (Branch branch : branches) {
             this.branches.put(branch.getName(), branch);
         }
+    }
+
+    /**
+     * @Description : 在serve调用initProperty()时判断是否属于某个服务
+     **/
+    protected boolean isBelong(Class<? extends AbstractServe> clazz) {
+        Config config = this.getClass().getAnnotation(Config.class);
+        return config.master() == clazz;
+    }
+
+    /**
+     * @Description : 在serve调用initProperty()时获取所属服务名称
+     **/
+    protected String getServeNameByClass() {
+        Config config = this.getClass().getAnnotation(Config.class);
+        return config.master().getSimpleName();
+    }
+
+    /**
+     * @Description : 系统启动时初始化注解中的属性
+     * @note : ⚠️ 程序启动配置文件的入口 !
+     **/
+    @Override
+    protected void initProperty() {
+        // 有分支：配置文件名称弃掉后缀名/分支名称.后缀名；没有分支：配置文件名称.后缀名
+        Config config = this.getClass().getAnnotation(Config.class);
+        this.serve = GalaxySpringUtil.getBean(config.master());
     }
 
     /**
@@ -174,17 +202,6 @@ public abstract class AbstractConfig extends AbstractSdpComponent implements Con
      **/
     protected void addPathsToConfig(String branch, String path) {
         this.branches.get(branch).getPaths().add(path);
-    }
-
-    /**
-     * @Description : 获取配置文件名称
-     * @note : ⚠️ 取路径最后一个文件名称 !
-     **/
-    @Override
-    public String getName() {
-        String[] pathAndFile = this.getClass().getAnnotation(Config.class)
-                .path().split(StrUtil.SLASH);
-        return pathAndFile[pathAndFile.length - 1];
     }
 
     /**
