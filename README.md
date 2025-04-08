@@ -121,19 +121,43 @@
   )
   public class Spark extends AbstractServe {
       
+      // 其它函数非必要不建议覆盖
+      
       @Override
       protected void initServe(Blueprint.Serve blueprint) {
           // 蓝图下发到服务最初始函数（必填）
       }
 
       @Override
+      protected void afterInstall(Blueprint.Serve blueprint) {
+          // 所有进程安装启动完成后，服务信息写入数据库之前执行（选填）
+          // ⚠️ 此时服务不一定可用且安装正确
+      }
+
+      @Override
+      protected void callbackServe() {
+          // 所有进程正确安装启动完成且服务服务信息已入库，服务可用（选填）
+      }
+
+      @Override
       protected void afterRecover(AbstractServe serve) {
-          // 服务还原逻辑，卸载等函数使用（选填）
+          // 进程、配置文件全部正确卸载完成后，没有同步数据库之前（选填）
+      }
+
+      @Override
+      protected void extendProperties(Map<String, String> properties) {
+          // 服务信息展示接口，已存在服务名称、版本号信息（选填）
+      }
+
+      @Override
+      public List<WebUI> getWebUIs(){
+          // 服务url链接信息接口（选填）
+          return null;
       }
 
       @Override
       public RpcRespond<String> isServeAvailable() {
-          // 服务可用性检测（选填）
+          // 服务可用性检测，默认逻辑是服务状态检测（选填）
           return null;
       }
       

@@ -159,8 +159,6 @@ public abstract class AbstractHostManager extends AbstractBeansAssemble implemen
                                 hostInfo.getHostname(),
                                 hostInfo.getGroups()
                         );
-                        AbstractBeansAssemble bean = GalaxySpringUtil.getBean(hostInfo.getHostname());
-                        bean.setDrivers();
                     } else {
                         log.warn("{}主机已经存在，在删除之前不可重复添加!", hostInfo.getHostname());
                     }

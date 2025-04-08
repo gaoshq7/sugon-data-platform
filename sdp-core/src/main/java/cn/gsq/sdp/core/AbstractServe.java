@@ -372,7 +372,7 @@ public abstract class AbstractServe extends AbstractApp {
      * @Description : 下载安装包
      **/
     protected void download(List<String> hostnames) {
-        for (String hostname : hostnames) {
+        hostnames.stream().parallel().forEach(hostname -> {
             this.resourceDriver.download(
                     new Resource()
                             .setVersion(this.sdpManager.getVersion())
@@ -380,7 +380,7 @@ public abstract class AbstractServe extends AbstractApp {
                             .setHostname(hostname)
                             .setPath(this.sdpManager.getHome())
             );
-        }
+        });
     }
 
     /**
