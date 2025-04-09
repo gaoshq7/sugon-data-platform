@@ -104,8 +104,8 @@
   package io.github.sdp.v531.spark;
 
   @Serve(
-          version = "3.3.3",    // 服务版本（必填）
-          handler = ServeHandler.FRAGMENT_ALONE_MODE, // 服务架构模式（必填）
+          version = "3.3.3",    // 服务版本（✅必填）
+          handler = ServeHandler.FRAGMENT_ALONE_MODE, // 服务架构模式（✅必填）
           type = ClassifyHandler.BIGDATA,   // 服务类型（选填）
           depends = {Zookeeper.class, YARN.class},    // 服务依赖（选填）
           appends = {
@@ -117,7 +117,7 @@
           labels = {"计算框架", "批处理"},     // 服务标签（选填）
           description = "Hadoop分布式文件存储系统",  // 描述信息（必填）
           all = true,   // 下载策略：true为所有节点全部下载；false为服务涉及到的节点下载（选填）
-          order = 1     // 服务在列表中展示顺序（必填）
+          order = 1     // 服务在列表中展示顺序（✅必填）
   )
   public class Spark extends AbstractServe {
       
@@ -125,7 +125,7 @@
       
       @Override
       protected void initServe(Blueprint.Serve blueprint) {
-          // 蓝图下发到服务最初始函数（必填）
+          // 蓝图下发到服务最初始函数（✅必填）
       }
 
       @Override
@@ -163,3 +163,38 @@
       
   }
   ```
+
+### 配置文件编写
+
+1. 在SDP版本编译根目录（例如：io.github.sdp.v531）下任意位置添加配置文件代理类（必须添加@Config注解且实现AbstractConfig抽象类）：
+  ```java
+  package io.github.sdp.v531.prestosql.config;
+
+  @Config(
+          master = PrestoSQL.class,  // 所属服务（✅必填）
+          type = "cfg",         // 配置文件数据类型（✅必填）
+          path = "/presto/etc/config.properties",    // 配置文件地址（✅必填）
+          description = "presto核心配置文件",     // 配置文件描述信息（选填）
+          branches = {"master", "worker"},      // 配置文件分支（选填）
+          show = false,         // 是否展示给用户以供修改（选填）
+          order = 1             // 配置文件展示顺序（✅必填）
+  )
+  public class CoreSiteXml extends AbstractConfig {
+      
+      // 其它函数非必要不建议覆盖
+
+      @Override
+      protected List<BranchModel> initContents(Map<String, Map<String, String>> branches, Blueprint.Serve serve) {
+          // 将要安装服务时根据蓝图提交的主机、服务等信息修改相关配置文件分支的配置项，返回所有分支的相信信息（选填）
+          // ⚠️ 默认逻辑：default分支不需要任何修改，同步主机根据服务是否需要全部主机安装来确定
+          return null;
+      }
+
+  }
+  ```
+2. 在resources目录下创建该配置文件代理类对应的默认配置数据信息文件，包含两种情况：
+   - `配置文件不存在分支：`resources/服务名称/配置文件名称$.csv（例如：resources/HDFS/core-site.xml$.csv）。“$”可选填，用来标明该文件中是否包含配置字典。
+   - `配置文件存在分支：`resources/服务名称/配置文件前缀/分支名称.配置文件后缀$.csv（例如：resources/PrestoSQL/config/master.properties$.csv）
+3. 配置文件数据文件格式统一使用csv，包含两种编写方式：
+   - `配置文件内容以“key-value”方式管理：`
+   

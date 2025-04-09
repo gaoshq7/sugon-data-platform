@@ -22,11 +22,11 @@ public @interface Config {
 
     Class<? extends AbstractServe> master();     // 所属服务
 
-    String type() default "";  // 配置文件的数据类型（使用者自行约定）
+    String type();  // 配置文件的数据类型（使用者自行约定）
 
     String path();      //  文件地址
 
-    String description();   // 配置文件描述信息
+    String description() default "";   // 配置文件描述信息
 
     String[] branches() default {};    // 分支文件名称
 

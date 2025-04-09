@@ -49,6 +49,7 @@ public abstract class AbstractServe extends AbstractApp {
     @Getter
     private volatile boolean locked = false;    // 服务是否被锁定（处于“安装中”、“卸载中”等临时状态）
 
+    @Getter
     private final boolean allMust;     // 是否所有主机都需要下载安装包
 
     @Getter

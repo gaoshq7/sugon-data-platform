@@ -386,7 +386,18 @@ public abstract class AbstractConfig extends AbstractSdpComponent implements Con
      * @Description : 安装时加载初始化配置文件
      * @note : ⚠️ 需要返回配置文件的全部内容, 该方法的修改会覆盖蓝图中添加的配置 !
      **/
-    protected abstract List<BranchModel> initContents(Map<String, Map<String, String>> branches, Blueprint.Serve serve);
+    protected List<BranchModel> initContents(Map<String, Map<String, String>> branches, Blueprint.Serve serve) {
+        Map<String, String> config = branches.get(SdpPropertiesFinal.DEFAULT_CHAR);
+        return CollUtil.newLinkedList(
+                new BranchModel(
+                        SdpPropertiesFinal.DEFAULT_CHAR,
+                        this.serve.isAllMust() ?
+                                CollUtil.newHashSet(CollUtil.map(this.hostManager.getHosts(), AbstractHost::getHostname, true)) :
+                                CollUtil.newHashSet(serve.getAllProcessHostnames()),
+                        config
+                )
+        );
+    }
 
     @Getter
     @AllArgsConstructor
