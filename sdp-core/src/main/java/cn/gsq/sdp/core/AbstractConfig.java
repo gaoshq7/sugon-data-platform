@@ -73,9 +73,12 @@ public abstract class AbstractConfig extends AbstractSdpComponent implements Con
         this.order = config.order();
     }
 
+    /**
+     * @Description : 系统启动时初始化注解中的属性
+     * @note : ⚠️ 程序启动配置文件的入口 !
+     **/
     @Override
-    protected void setDrivers() {
-        super.setDrivers();
+    protected void initProperty() {
         Config config = this.getClass().getAnnotation(Config.class);
         this.serve = GalaxySpringUtil.getBean(config.master());
         this.path = this.sdpManager.getHome() + (config.path().startsWith(StrUtil.SLASH) ? config.path() : StrUtil.SLASH + config.path());
@@ -101,15 +104,6 @@ public abstract class AbstractConfig extends AbstractSdpComponent implements Con
         for (Branch branch : branches) {
             this.branches.put(branch.getName(), branch);
         }
-    }
-
-    /**
-     * @Description : 系统启动时初始化注解中的属性
-     * @note : ⚠️ 程序启动配置文件的入口 !
-     **/
-    @Override
-    protected void initProperty() {
-
     }
 
     /**

@@ -11,6 +11,13 @@ package cn.gsq.sdp.core;
 public abstract class AbstractSdpComponent extends AbstractBeansAssemble {
 
     /**
+     * @Description : 所有sdp组件自动装配各种驱动
+     **/
+    protected AbstractSdpComponent() {
+        super.setDrivers();
+    }
+
+    /**
      * @Description : 初始化固定属性
      **/
     protected abstract void initProperty();

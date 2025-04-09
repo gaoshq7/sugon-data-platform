@@ -86,16 +86,17 @@ public class SdpEnvManager {
             throw new RuntimeException("SDP版本不存在：" + version);
         }
         // 初始化sdpmanager
+        this.sdpManager.setDrivers();
         this.sdpManager.setVersion(version);
         this.sdpManager.setHome(SdpPropertiesFinal.SDP_BASE_PATH + StrUtil.SLASH + version);
         // 初始化hostmanager主机代理类
+        this.hostManager.setDrivers();
         this.hostManager.setHostClass(getHostClass(meta.getClasspath()));
-        // 初始化hostmanager主机分组策略
         this.hostManager.resetMode();
         List<HostGroup> groups = getAllGroups(meta.getClasspath());
         Map<String, List<HostGroup>> gmap = groups.stream().collect(Collectors.groupingBy(HostGroup::mode));
         gmap.forEach(this.hostManager::addMode);
-        // 动态加载SDP Bean环境
+        // 初始化SDP服务组件
         ApplicationContext context = GalaxySpringUtil.getContext();
         if(ObjectUtil.isEmpty(context)) {
             GalaxySpringUtil.updateApplicationContext(this.applicationContext);
@@ -112,11 +113,6 @@ public class SdpEnvManager {
                 meta.getClasspath(),
                 BeanDefinition::getBeanClassName
         );
-        // 初始化所有依赖关系
-        List<AbstractBeansAssemble> beans = GalaxySpringUtil.getBeans(AbstractBeansAssemble.class);
-        for (AbstractBeansAssemble bean : beans) {
-            bean.setDrivers();
-        }
         // 初始化所有sdp组件的固有属性
         List<AbstractSdpComponent> components = GalaxySpringUtil.getBeans(AbstractSdpComponent.class);
         for (AbstractSdpComponent component : components) {

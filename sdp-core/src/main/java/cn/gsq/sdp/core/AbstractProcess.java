@@ -84,9 +84,11 @@ public abstract class AbstractProcess<T extends AbstractHost> extends AbstractAp
         this.description = process.description();
     }
 
+    /**
+     * @Description : 系统启动时初始化进程属性
+     **/
     @Override
-    protected void setDrivers() {
-        super.setDrivers();
+    public void initProperty() {
         Process process = this.getClass().getAnnotation(Process.class);
         this.serve = GalaxySpringUtil.getBean(process.master());
         this.home = this.sdpManager.getHome() + (process.home().startsWith(StrUtil.SLASH) ? process.home() : StrUtil.SLASH + process.home());
@@ -112,14 +114,6 @@ public abstract class AbstractProcess<T extends AbstractHost> extends AbstractAp
                     excludeProcess.getExcludes().add((AbstractProcess<AbstractHost>) this);
                 });
         this.logger = new Logger();
-    }
-
-    /**
-     * @Description : 系统启动时初始化进程属性
-     **/
-    @Override
-    public void initProperty() {
-
     }
 
     /**

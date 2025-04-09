@@ -39,7 +39,6 @@ public abstract class AbstractHost extends AbstractExecutor {
      * @Description : ioc注册构造函数
      **/
     protected AbstractHost(String hostname, List<String> groups) {
-        super.setDrivers();
         this.hostname = hostname;
         this.groups = CollUtil.newArrayList();
         if (CollUtil.isNotEmpty(groups)) {
