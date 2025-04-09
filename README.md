@@ -197,4 +197,4 @@
    - `配置文件存在分支：`resources/服务名称/配置文件前缀/分支名称.配置文件后缀$.csv（例如：resources/PrestoSQL/config/master.properties$.csv）
 3. 配置文件数据文件格式统一使用csv，包含两种编写方式：
    - `配置文件内容以“key-value”方式管理：`
-   
+     ![image](images/config_kv_model.jpg)
