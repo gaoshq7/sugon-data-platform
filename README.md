@@ -198,3 +198,5 @@
 3. 配置文件数据文件格式统一使用csv，包含两种编写方式：
    - `配置文件内容以“key-value”方式管理：`
      ![image](images/config_kv_model.jpg)
+   - `配置文件内容以纯文本方式管理：`
+     ![image](images/config_txt_model.jpg)
