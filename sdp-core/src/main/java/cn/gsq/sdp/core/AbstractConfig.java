@@ -356,7 +356,6 @@ public abstract class AbstractConfig extends AbstractSdpComponent implements Con
      * @Description : 获取服务名称
      **/
     public String getServeName(){
-
         return ObjectUtil.isNull(this.serve) ? this.getClass().getAnnotation(Config.class).master().getSimpleName() : this.serve.getName();
     }
 

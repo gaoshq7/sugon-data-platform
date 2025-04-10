@@ -408,7 +408,7 @@ public abstract class AbstractProcess<T extends AbstractHost> extends AbstractAp
      * @Description : 获取所在服务名称
      **/
     public String getServename(){
-        return this.serve.getName();
+        return ObjectUtil.isNull(this.serve) ? this.getClass().getAnnotation(Process.class).master().getSimpleName() : this.serve.getName();
     }
 
     /**
