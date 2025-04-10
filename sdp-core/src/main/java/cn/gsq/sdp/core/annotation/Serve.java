@@ -38,6 +38,8 @@ public @interface Serve {
 
     boolean all() default false;      // 所有主机是否都需要安装
 
+    String pkg() default "";   // 包文件系统中对应的安装文件目录
+
     int order();      // 服务集合排列顺序（不可重复）
 
 }

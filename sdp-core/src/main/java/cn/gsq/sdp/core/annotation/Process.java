@@ -30,7 +30,7 @@ public @interface Process {
 
     ProcessHandler handler();  // 进程类型
 
-    Group[] groups();   // 主机分组
+    Group[] groups() default {};   // 主机分组
 
     String mark();       // 进程获取唯一标示（ps -ef | grep {} | grep -v grep | awk '{print $2}'）
 
@@ -42,7 +42,7 @@ public @interface Process {
 
     boolean dynamic() default false; // 是否允许扩容
 
-    String description();   // 进程描述信息
+    String description() default "";   // 进程描述信息
 
     int order();  // 列表排序使用
 

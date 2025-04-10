@@ -80,7 +80,7 @@ public abstract class AbstractApp extends AbstractExecutor {
     /**
      * @Description : 应用安装
      **/
-    public abstract void install(Blueprint.Serve serve);
+    protected abstract void install(Blueprint.Serve serve);
 
     /**
      * @Description : 服务或进程是否安装

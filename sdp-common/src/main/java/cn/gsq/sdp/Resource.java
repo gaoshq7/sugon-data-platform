@@ -23,10 +23,10 @@ public class Resource {
 
     private String version;     // sdp版本号
 
-    private String servename;   // 服务名称
+    private String pkg;   // 服务对应的安装包根目录名称
 
     private String hostname;    // 下载安装包的主机名
 
-    private String path;        // 包安装地址
+    private String path;        // 包安装地址（例如：/usr/sdp/v5.3.1）
 
 }

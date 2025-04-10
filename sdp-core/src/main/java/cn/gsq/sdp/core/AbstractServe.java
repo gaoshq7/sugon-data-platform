@@ -53,6 +53,9 @@ public abstract class AbstractServe extends AbstractApp {
     private final boolean allMust;     // 是否所有主机都需要下载安装包
 
     @Getter
+    private final String pkg;   // 包文件系统中对应的安装文件目录
+
+    @Getter
     private final int order;
 
     private final transient ServeHandler handler;               // 根据部署模式划分管理者（注解中获取）
@@ -64,6 +67,7 @@ public abstract class AbstractServe extends AbstractApp {
         this.version = serve.version();
         this.handler = serve.handler();
         this.allMust = serve.all();
+        this.pkg = StrUtil.isNotBlank(serve.pkg()) ? serve.pkg() : this.getName();
         this.order = serve.order();
         this.serveType = serve.type().getName();
         this.serveLabels = CollUtil.toList(serve.labels());
@@ -367,7 +371,9 @@ public abstract class AbstractServe extends AbstractApp {
      * @Description : 初始化服务
      * @note : ⚠️ 服务初始化 子类酌情覆盖 !
      **/
-    protected abstract void initServe(Blueprint.Serve blueprint);
+    protected void initServe(Blueprint.Serve blueprint) {
+
+    }
 
     /**
      * @Description : 下载安装包
@@ -377,7 +383,7 @@ public abstract class AbstractServe extends AbstractApp {
             this.resourceDriver.download(
                     new Resource()
                             .setVersion(this.sdpManager.getVersion())
-                            .setServename(this.getName())
+                            .setPkg(this.getPkg())
                             .setHostname(hostname)
                             .setPath(this.sdpManager.getHome())
             );

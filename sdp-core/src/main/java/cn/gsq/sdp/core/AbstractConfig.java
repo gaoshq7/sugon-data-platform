@@ -181,6 +181,27 @@ public abstract class AbstractConfig extends AbstractSdpComponent implements Con
     }
 
     /**
+     * @Description : 备份配置文件信息
+     **/
+    protected String backup() {
+        return null;
+    }
+
+    /**
+     * @Description : 还原备份信息
+     **/
+    protected void restore(String id) {
+
+    }
+
+    /**
+     * @Description : 释放备份信息
+     **/
+    protected void discard(String id) {
+
+    }
+
+    /**
      * @Description : 添加新的路径到branch
      **/
     protected void addPathsToConfig(String branch, String path) {
@@ -335,7 +356,8 @@ public abstract class AbstractConfig extends AbstractSdpComponent implements Con
      * @Description : 获取服务名称
      **/
     public String getServeName(){
-        return ObjectUtil.isNull(this.serve) ? null : this.serve.getName();
+
+        return ObjectUtil.isNull(this.serve) ? this.getClass().getAnnotation(Config.class).master().getSimpleName() : this.serve.getName();
     }
 
     /**

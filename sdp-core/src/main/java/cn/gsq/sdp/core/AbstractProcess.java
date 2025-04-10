@@ -1,13 +1,12 @@
 package cn.gsq.sdp.core;
 
 import cn.gsq.common.config.GalaxySpringUtil;
-import cn.gsq.sdp.Blueprint;
-import cn.gsq.sdp.Operation;
-import cn.gsq.sdp.SdpPropertiesFinal;
+import cn.gsq.sdp.*;
 import cn.gsq.sdp.core.annotation.*;
 import cn.gsq.sdp.core.annotation.Process;
 import cn.hutool.core.collection.CollUtil;
 import cn.hutool.core.convert.Convert;
+import cn.hutool.core.lang.Pair;
 import cn.hutool.core.util.EnumUtil;
 import cn.hutool.core.util.ObjectUtil;
 import cn.hutool.core.util.StrUtil;
@@ -131,14 +130,14 @@ public abstract class AbstractProcess<T extends AbstractHost> extends AbstractAp
      * @note : ⚠️ 此函数只负责完成进程的初始化 !
      **/
     @Override
-    public synchronized void install(Blueprint.Serve blueprint) {
+    protected synchronized void install(Blueprint.Serve blueprint) {
         // 获取该进程的蓝图
         Blueprint.Process blueprintProcess =
                 CollUtil.findOne(blueprint.getProcesses(), bpp -> bpp.getProcessname().equals(this.getName()));
         // 在内存中添加主机
         deployHosts(blueprintProcess.getHostnames());
         // 开始安装进程
-        initProcess(this);
+        initProcess();
         // 启动进程
         start();
         // 可用性检测
@@ -150,11 +149,11 @@ public abstract class AbstractProcess<T extends AbstractHost> extends AbstractAp
      * @note : ⚠️ 该方法不会清空进程的主机列表，需要在serve中依照逻辑调用 !
      **/
     @Override
-    public void recover() {
+    protected void recover() {
         // 停止所有运行的主机
         this.stop();
-        // 执行卸载函数
-        recover(this);
+        // 执行重置函数
+        this.reset();
     }
 
     /**
@@ -267,7 +266,31 @@ public abstract class AbstractProcess<T extends AbstractHost> extends AbstractAp
                 } else if (this.hosts.contains(host)) {
                     this.error("主机“" + hostname + "”已存在“" + this.getName() + "”进程。");
                 } else {
-                    this.extend(host);
+                    // 默认只负责下载对应服务的安装包
+                    this.resourceDriver.download(
+                            new Resource()
+                                    .setVersion(this.sdpManager.getVersion())
+                                    .setPkg(this.serve.getPkg())
+                                    .setHostname(hostname)
+                                    .setPath(this.sdpManager.getHome())
+                    );
+                    this.logDriver.log(RunLogLevel.INFO, hostname + "主机" + this.getServename() + "安装包下载完成。");
+                    // 备份所有配置文件
+                    List<Pair<AbstractConfig, String>> pairs = CollUtil.map(
+                            this.serve.getAllConfigs(), config -> new Pair<>(config, config.backup()), true
+                    );
+                    try {
+                        this.extend(host);
+                        this.addHosts(hostname);
+                        // ⚠️ 此处应有同步各个主机配置文件操作
+                        this.logDriver.log(RunLogLevel.INFO, hostname + "主机扩容" + this.getName() + "进程成功。");
+                    } catch (Exception e) {
+                        this.logDriver.log(RunLogLevel.ERROR, hostname + "主机扩容" + this.getName() + "进程失败。");
+                        pairs.forEach(pair -> pair.getKey().restore(pair.getValue()));
+                        throw new RuntimeException(e);
+                    } finally {
+                        pairs.forEach(pair -> pair.getKey().discard(pair.getValue()));
+                    }
                 }
             }
             this.serve.restart();
@@ -460,7 +483,7 @@ public abstract class AbstractProcess<T extends AbstractHost> extends AbstractAp
      * @Description : 删除主机
      * @note : ⚠️ 只在内存和数据库中进行元数据修改 !
      **/
-    public synchronized void deleteHosts(String ... hostnames) {
+    protected synchronized void deleteHosts(String ... hostnames) {
         // 调用引擎，错误抛出则终止
         this.processDriver.delHosts(this.getName(), Convert.toList(String.class, hostnames));
         Arrays.stream(hostnames).forEach(hostname -> {
@@ -475,23 +498,39 @@ public abstract class AbstractProcess<T extends AbstractHost> extends AbstractAp
      * @Description : 进程初始化
      * @note : ⚠️ 此函数在启动进程之前执行创建目录或初始化文件系统之类的操作 !
      **/
-    protected abstract void initProcess(AbstractProcess<T> process);
+    protected void initProcess() {
+
+    }
 
     /**
-     * @Description : 卸载进程
+     * @Description : 重置进程函数
      * @note : ⚠️ 此函数运行在进程停止之后 !
      **/
-    protected abstract void recover(AbstractProcess<T> process);
+    protected void reset() {
+
+    }
 
     /**
      * @Description : 服务扩容
      **/
-    protected abstract void extend(AbstractHost host);
+    protected void extend(AbstractHost host) {
+        if (this.isDynamic()) {
+            throw new RuntimeException(this.getName() + " 进程扩容函数缺失。");
+        } else {
+            throw new RuntimeException(this.getName() + " 进程不允许扩容操作。");
+        }
+    }
 
     /**
      * @Description : 服务缩容
      **/
-    protected abstract void shorten(AbstractHost host);
+    protected void shorten(AbstractHost host) {
+        if (this.isDynamic()) {
+            throw new RuntimeException(this.getName() + " 进程缩容函数缺失。");
+        } else {
+            throw new RuntimeException(this.getName() + " 进程不允许缩容操作。");
+        }
+    }
 
     /**
      * @Description : 是否存在扩容/缩容
