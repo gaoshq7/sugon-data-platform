@@ -65,35 +65,119 @@ package com.sugon.gsq.libraries.v531.entity;
 public enum MasterSlave implements HostGroup {
    
    // ⚠️ 不要覆盖“HostGroup”中的“mode()”函数，即便要覆盖也必须返回值与@Mode("主从混合")注解中的属性一致。
-   master("master主机组", 2, 2, "运行与使用终端交互的服务主进程"),
-   core("task主机组", 3, -1, "运行数据计算进程");
+   MASTER{
+       @Override
+       public int min() {
+           return 2;
+       }
 
-   private final String name;    // 主机分组名称
-   private final int min;        // 主机分组最小节点数量
-   private final int max;        // 主机分组最大节点数量
-   private final String desc;    // 主机分组描述信息
+       @Override
+       public int max() {
+           return 2;
+       }
 
-   MasterSlave(String name, int min, int max, String desc) {
-       this.name = name;
-       this.min = min;
-       this.max = max;
-       this.desc = desc;
-   }
+       @Override
+       public String description() {
+           return "运行与使用终端交互的服务主进程";
+       }
+   },
+    COMMON{
+        @Override
+        public int min() {
+            return 3;
+        }
 
-   @Override
-   public int min() {
-       return min;
-   }
+        @Override
+        public int max() {
+            return -1;
+        }
 
-   @Override
-   public int max() {
-       return max;
-   }
+        @Override
+        public String description() {
+            return "运行分布式元数据服务进程";
+        }
+    },
+    WEB{
+        @Override
+        public int min() {
+            return 1;
+        }
 
-   @Override
-   public String description() {
-       return desc;
-   }
+        @Override
+        public int max() {
+            return 1;
+        }
+
+        @Override
+        public String description() {
+            return "运行组件的页面终端服务进程";
+        }
+    },
+    DATA{
+        @Override
+        public int min() {
+            return 3;
+        }
+
+        @Override
+        public int max() {
+            return -1;
+        }
+
+        @Override
+        public String description() {
+            return "运行数据存储进程";
+        }
+    },
+    TASK{
+        @Override
+        public int min() {
+            return 3;
+        }
+
+        @Override
+        public int max() {
+            return -1;
+        }
+
+        @Override
+        public String description() {
+            return "运行数据计算进程";
+        }
+    },
+    HTAP{
+        @Override
+        public int min() {
+            return 3;
+        }
+
+        @Override
+        public int max() {
+            return -1;
+        }
+
+        @Override
+        public String description() {
+            return  "运行Doris服务计算存储进程";
+        }
+    },
+    OLAP{
+        @Override
+        public int min() {
+            return 2;
+        }
+
+        @Override
+        public int max() {
+            return -1;
+        }
+
+        @Override
+        public String description() {
+            return "运行Presto服务计算进程";
+        }
+    }
+    
 }
 ```
 
