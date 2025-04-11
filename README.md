@@ -326,6 +326,8 @@ package io.github.sdp.v531.hdfs.process;
         max = 2    // 最大主机数量（选填）
 )
 public class NameNode extends AbstractProcess<SdpHost531Impl> {
+    
+    // 其它函数非必要不建议覆盖
 
     @Override
     protected void initProcess() {
@@ -345,12 +347,14 @@ public class NameNode extends AbstractProcess<SdpHost531Impl> {
 
     @Override
     protected void extend(AbstractHost abstractHost) {
-
+        // 进程扩容逻辑（选填）
+        // ⚠️ @Process注解dynamic = true时，必须覆盖该函数
     }
 
     @Override
     protected void shorten(AbstractHost abstractHost) {
-
+        // 进程缩容逻辑（选填）
+        // ⚠️ @Process注解 dynamic = true 时，必须覆盖该函数
     }
 
     @Override
