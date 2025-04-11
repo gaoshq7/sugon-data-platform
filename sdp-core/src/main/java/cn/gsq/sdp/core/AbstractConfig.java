@@ -6,8 +6,10 @@ import cn.gsq.sdp.core.annotation.Config;
 import cn.gsq.sdp.core.utils.CSVConverter;
 import cn.gsq.sdp.driver.ConfigDriver;
 import cn.gsq.sdp.utils.FileUtil;
+import cn.hutool.core.bean.BeanUtil;
 import cn.hutool.core.collection.CollUtil;
 import cn.hutool.core.convert.Convert;
+import cn.hutool.core.lang.UUID;
 import cn.hutool.core.map.MapUtil;
 import cn.hutool.core.text.StrBuilder;
 import cn.hutool.core.util.ArrayUtil;
@@ -57,11 +59,13 @@ public abstract class AbstractConfig extends AbstractSdpComponent implements Con
     @Getter
     private final int order;      // 配置文件列表排序
 
-    private final Map<String, Branch> branches = MapUtil.newHashMap();     // 所有配置文件的分支
+    private  Map<String, Branch> branches = MapUtil.newHashMap();     // 所有配置文件的分支
 
     private final Map<String, List<ConfigItem>> dictionaryMap = MapUtil.newHashMap(); // 所有配置文件的字典
 
     private final Map<String,List<ConfigItem>> nonDictionaryMap = MapUtil.newHashMap(); // 所有没有字典的配置文件
+
+    private Map<String,Map<String, Branch>> backendMap=MapUtil.newHashMap(); // 所有配置文件的分支的备份
 
     protected AbstractConfig() {
         Config config = this.getClass().getAnnotation(Config.class);
@@ -184,21 +188,30 @@ public abstract class AbstractConfig extends AbstractSdpComponent implements Con
      * @Description : 备份配置文件信息
      **/
     protected String backup() {
-        return null;
+        String uuid = UUID.fastUUID().toString();
+        Map<String, Branch> backend=MapUtil.newHashMap();
+        BeanUtil.copyProperties(this.branches,backend);
+        backendMap.put(uuid,backend);
+        return uuid;
     }
 
     /**
      * @Description : 还原备份信息
      **/
     protected void restore(String id) {
-
+        Map<String, Branch> branchMap = backendMap.get(id);
+        if(ObjectUtil.isEmpty(branchMap)){
+            log.error(this.getName()+"配置文件还原失败: 备份的配置文件不存在");
+            throw new RuntimeException(this.getName()+"配置文件还原失败: 备份的配置文件不存在");
+        }
+        this.branches=branchMap;
     }
 
     /**
      * @Description : 释放备份信息
      **/
     protected void discard(String id) {
-
+        backendMap.remove(id);
     }
 
     /**
@@ -380,6 +393,32 @@ public abstract class AbstractConfig extends AbstractSdpComponent implements Con
     }
 
     /**
+     * @Description : 添加分支管理主机
+     * @note : ⚠️ 扩容失败后，该方法会同步内存和存储中的配置文件分支拓扑图 !
+     **/
+    public void rollbackBranchHostsAfterExtend(String branchName, String ... hostnames) {
+        Branch branch = this.branches.get(branchName);
+        if(ObjectUtil.isNotEmpty(branch)) {
+            branch.rollbackConfigAfterExtend(hostnames);
+        } else {
+            log.error("rollbackBranchHostsAfterExtend error：{}服务中的{}配置文件不存在{}分支", serve.getName(), this.getName(), branchName);
+        }
+    }
+
+    /**
+     * @Description : 添加分支管理主机
+     * @note : ⚠️ 缩容失败后，该方法会同步内存和存储中的配置文件分支拓扑图 !
+     **/
+    public void rollbackBranchHostsAfterShorten(String branchName, String ... hostnames) {
+        Branch branch = this.branches.get(branchName);
+        if(ObjectUtil.isNotEmpty(branch)) {
+            branch.rollbackConfigAfterExtend(hostnames);
+        } else {
+            log.error("rollbackBranchHostsAfterShorten error：{}服务中的{}配置文件不存在{}分支", serve.getName(), this.getName(), branchName);
+        }
+    }
+
+    /**
      * @Description : 删除分支管理主机
      **/
     public void delBranchHosts(String branchName, String ... hostnames) {
@@ -493,6 +532,26 @@ public abstract class AbstractConfig extends AbstractSdpComponent implements Con
                 nonConfigDictionary = CSVConverter.convertCSV(nonDictionaryPath);
             }
         }
+
+
+        /**
+         * @Description :
+         * @note : ⚠️ 在扩容失败的时候使用，同步配置 !
+         **/
+        private void rollbackConfigAfterExtend(String ... hostnames) {
+            driver.abandonBranchHosts(getSelfMetadata(), Convert.toSet(String.class, hostnames));
+            this.driver.conform(getSelfMetadata(), this.getItems());
+        }
+
+        /**
+         * @Description :
+         * @note : ⚠️ 在缩容失败的时候使用，同步配置 !
+         **/
+        private void rollbackConfigAfterShorten(String ... hostnames) {
+            driver.extendBranchHosts(getSelfMetadata(), Convert.toSet(String.class, hostnames));
+            this.driver.conform(getSelfMetadata(), this.getItems());
+        }
+
 
         /**
          * @Description : 分支配置文件添加主机

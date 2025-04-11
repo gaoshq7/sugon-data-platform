@@ -287,6 +287,10 @@ public abstract class AbstractProcess<T extends AbstractHost> extends AbstractAp
                     } catch (Exception e) {
                         this.logDriver.log(RunLogLevel.ERROR, hostname + "主机扩容" + this.getName() + "进程失败。");
                         pairs.forEach(pair -> pair.getKey().restore(pair.getValue()));
+                        pairs.forEach(pair -> {
+                            AbstractConfig config = pair.getKey();
+                            config.getBranchNames().forEach(br->config.rollbackBranchHostsAfterExtend(br,hostname));
+                        });
                         throw new RuntimeException(e);
                     } finally {
                         pairs.forEach(pair -> pair.getKey().discard(pair.getValue()));
@@ -312,7 +316,26 @@ public abstract class AbstractProcess<T extends AbstractHost> extends AbstractAp
                 } else if (!this.hosts.contains(host)) {
                     this.error("主机“" + hostname + "”不存在“" + this.getName() + "”进程。");
                 } else {
-                    this.shorten(host);
+                    // 备份所有配置文件
+                    List<Pair<AbstractConfig, String>> pairs = CollUtil.map(
+                            this.serve.getAllConfigs(), config -> new Pair<>(config, config.backup()), true
+                    );
+
+                    try {
+                        this.shorten(host);
+                        this.deleteHosts(hostname);
+                        this.logDriver.log(RunLogLevel.INFO, hostname + "主机缩容" + this.getName() + "进程成功。");
+                    } catch (Exception e) {
+                        this.logDriver.log(RunLogLevel.ERROR, hostname + "主机缩容" + this.getName() + "进程失败。");
+                        pairs.forEach(pair -> pair.getKey().restore(pair.getValue()));
+                        pairs.forEach(pair -> {
+                            AbstractConfig config = pair.getKey();
+                            config.getBranchNames().forEach(br->config.rollbackBranchHostsAfterShorten(br,hostname));
+                        });
+                        throw new RuntimeException(e);
+                    } finally {
+                        pairs.forEach(pair -> pair.getKey().discard(pair.getValue()));
+                    }
                 }
             }
             this.serve.restart();
