@@ -125,13 +125,13 @@ public abstract class AbstractServe extends AbstractApp {
             // ⚠️ 安装第一步：初始化服务，执行服务初始化函数
             initServe(blueprint);
             // ⚠️ 安装第二步：下载安装包
-            List<String> hostnames;
+            List<AbstractHost> hosts;
             if (this.allMust) {
-                hostnames = CollUtil.map(this.hostManager.getHosts(), AbstractHost::getHostname, true);
+                hosts = this.hostManager.getHosts();
             } else {
-                hostnames = blueprint.getAllProcessHostnames();
+                hosts = CollUtil.map(blueprint.getAllProcessHostnames(), hostname -> this.hostManager.getHostByName(hostname), true);
             }
-            download(hostnames);
+            hosts.parallelStream().forEach(host -> host.downloadPackage(this.sdpManager.getVersion(), this.pkg));
             // ⚠️ 安装第三步：发送服务预安装广播
             super.broadcast(AppEvent.PREINSTALL, blueprint.getServename(), JSON.toJSONString(blueprint.getProcesses()));
             // ⚠️ 安装第四步：初始化服务的每一个配置文件
@@ -373,21 +373,6 @@ public abstract class AbstractServe extends AbstractApp {
      **/
     protected void initServe(Blueprint.Serve blueprint) {
 
-    }
-
-    /**
-     * @Description : 下载安装包
-     **/
-    protected void download(List<String> hostnames) {
-        hostnames.stream().parallel().forEach(hostname -> {
-            this.resourceDriver.download(
-                    new Resource()
-                            .setVersion(this.sdpManager.getVersion())
-                            .setPkg(this.getPkg())
-                            .setHostname(hostname)
-                            .setPath(this.sdpManager.getHome())
-            );
-        });
     }
 
     /**

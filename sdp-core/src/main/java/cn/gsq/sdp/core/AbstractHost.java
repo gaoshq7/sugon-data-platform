@@ -1,9 +1,6 @@
 package cn.gsq.sdp.core;
 
-import cn.gsq.sdp.AppEvent;
-import cn.gsq.sdp.MountParams;
-import cn.gsq.sdp.RpcRequest;
-import cn.gsq.sdp.RpcRespond;
+import cn.gsq.sdp.*;
 import cn.gsq.sdp.core.annotation.Function;
 import cn.hutool.core.collection.CollUtil;
 import cn.hutool.core.net.NetUtil;
@@ -380,6 +377,18 @@ public abstract class AbstractHost extends AbstractExecutor {
             log.error("主机{}查看{}脚本时系统错误", this.getName(), path, e);
             throw new RuntimeException(errorMsg);
         }
+    }
+
+    /**
+     * @Description : 下载服务安装包
+     **/
+    public void downloadPackage(String version, String pkg) {
+        this.resourceDriver.download(
+                new Resource()
+                        .setVersion(version)
+                        .setPkg(pkg)
+                        .setHostname(this.getName()).setPath(this.sdpManager.getHome())
+        );
     }
 
     /**
