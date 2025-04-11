@@ -17,6 +17,7 @@ import java.io.FileNotFoundException;
 import java.util.*;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.function.Predicate;
+import java.util.stream.Collectors;
 
 /**
  * Project : sugon-data-platform
@@ -388,7 +389,9 @@ public abstract class AbstractProcess<T extends AbstractHost> extends AbstractAp
                     unusables.addAll(hosts_);
                 }
             }
-            List<AbstractHost> usables = CollUtil.filter(this.hostManager.getHosts(), host -> !unusables.contains(host.getName()));
+            List<AbstractHost> usables = this.hostManager.getHosts().stream()
+                    .filter(host -> !unusables.contains(host.getName()))
+                    .collect(Collectors.toList());
             flag = CollUtil.isNotEmpty(usables);
         }
         return flag;
