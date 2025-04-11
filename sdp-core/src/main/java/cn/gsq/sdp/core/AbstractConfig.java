@@ -48,7 +48,7 @@ public abstract class AbstractConfig extends AbstractSdpComponent implements Con
     private final String name;    // 配置文件名称
 
     @Getter
-    private String path;    //  配置文件需要放置的地址（ ⚠️ 分支里面必有该地址）
+    private final String path;    //  配置文件需要放置的地址（ ⚠️ 分支里面必有该地址）
 
     @Getter
     private final String description;     //  配置文件描述信息
@@ -59,7 +59,7 @@ public abstract class AbstractConfig extends AbstractSdpComponent implements Con
     @Getter
     private final int order;      // 配置文件列表排序
 
-    private  Map<String, Branch> branches = MapUtil.newHashMap();     // 所有配置文件的分支
+    private Map<String, Branch> branches = MapUtil.newHashMap();     // 所有配置文件的分支
 
     private final Map<String, List<ConfigItem>> dictionaryMap = MapUtil.newHashMap(); // 所有配置文件的字典
 
