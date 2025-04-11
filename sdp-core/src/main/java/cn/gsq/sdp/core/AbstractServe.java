@@ -67,7 +67,7 @@ public abstract class AbstractServe extends AbstractApp {
         this.version = serve.version();
         this.handler = serve.handler();
         this.allMust = serve.all();
-        this.pkg = StrUtil.isNotBlank(serve.pkg()) ? serve.pkg() : this.getName();
+        this.pkg = StrUtil.isNotBlank(serve.pkg()) ? serve.pkg() : this.getName().toLowerCase();
         this.order = serve.order();
         this.serveType = serve.type().getName();
         this.serveLabels = CollUtil.toList(serve.labels());
