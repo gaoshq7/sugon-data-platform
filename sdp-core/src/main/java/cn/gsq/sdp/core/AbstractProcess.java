@@ -268,13 +268,7 @@ public abstract class AbstractProcess<T extends AbstractHost> extends AbstractAp
                     this.error("主机“" + hostname + "”已存在“" + this.getName() + "”进程。");
                 } else {
                     // 默认只负责下载对应服务的安装包
-                    this.resourceDriver.download(
-                            new Resource()
-                                    .setVersion(this.sdpManager.getVersion())
-                                    .setPkg(this.serve.getPkg())
-                                    .setHostname(hostname)
-                                    .setPath(this.sdpManager.getHome())
-                    );
+                    host.downloadPackage(this.sdpManager.getVersion(), this.serve.getPkg());
                     this.logDriver.log(RunLogLevel.INFO, hostname + "主机" + this.getServename() + "安装包下载完成。");
                     // 备份所有配置文件
                     List<Pair<AbstractConfig, String>> pairs = CollUtil.map(
