@@ -256,7 +256,7 @@ public abstract class AbstractProcess<T extends AbstractHost> extends AbstractAp
     /**
      * @Description : 进程扩容
      **/
-    @Function(name = "进程扩容", id = "extend")
+    @Function(name = "进程扩容", id = "EXPAND")
     public synchronized void extend(List<String> hostnames) {
         if (this.isDynamic()) {
             for (String hostname : hostnames) {
@@ -306,7 +306,7 @@ public abstract class AbstractProcess<T extends AbstractHost> extends AbstractAp
     /**
      * @Description : 进程缩容
      **/
-    @Function(name = "进程缩容", id = "shorten")
+    @Function(name = "进程缩容", id = "SHRINK")
     public synchronized void shorten(List<String> hostnames) {
         if (isDynamic()) {
             for (String hostname : hostnames) {
