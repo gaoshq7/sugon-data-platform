@@ -373,7 +373,7 @@ public abstract class AbstractProcess<T extends AbstractHost> extends AbstractAp
      * @Description : 是否允许扩容
      **/
     @Available(fid = "extend")
-    public synchronized boolean canExtend() {
+    public boolean canExtend() {
         boolean flag = false;
         if (this.isDynamic()) {
             List<String> unusables = CollUtil.map(this.getHosts(), AbstractHost::getName, true);
@@ -395,7 +395,7 @@ public abstract class AbstractProcess<T extends AbstractHost> extends AbstractAp
      * @Description : 是否允许缩容
      **/
     @Available(fid = "shorten")
-    public synchronized boolean canShorten() {
+    public boolean canShorten() {
         boolean flag = false;
         if (this.isDynamic()) {
             flag = this.getHosts().size() > getMin();
