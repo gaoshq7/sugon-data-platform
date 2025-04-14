@@ -200,7 +200,7 @@ public abstract class AbstractProcess<T extends AbstractHost> extends AbstractAp
         if (this.isDynamic()) {
             return operations;
         }
-        return CollUtil.filter(operations, o -> !o.getId().equals("extend") && !o.getId().equals("shorten"));
+        return CollUtil.filter(operations, o -> !o.getId().equals("EXPAND") && !o.getId().equals("SHRINK"));
     }
 
     /**
@@ -372,7 +372,7 @@ public abstract class AbstractProcess<T extends AbstractHost> extends AbstractAp
     /**
      * @Description : 是否允许扩容
      **/
-    @Available(fid = "extend")
+    @Available(fid = "EXPAND")
     public boolean canExtend() {
         boolean flag = false;
         if (this.isDynamic()) {
@@ -394,7 +394,7 @@ public abstract class AbstractProcess<T extends AbstractHost> extends AbstractAp
     /**
      * @Description : 是否允许缩容
      **/
-    @Available(fid = "shorten")
+    @Available(fid = "SHRINK")
     public boolean canShorten() {
         boolean flag = false;
         if (this.isDynamic()) {
