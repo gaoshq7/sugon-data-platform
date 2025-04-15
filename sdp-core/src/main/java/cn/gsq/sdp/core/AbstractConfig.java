@@ -15,6 +15,7 @@ import cn.hutool.core.text.StrBuilder;
 import cn.hutool.core.util.ArrayUtil;
 import cn.hutool.core.util.ObjectUtil;
 import cn.hutool.core.util.StrUtil;
+import cn.hutool.json.JSONUtil;
 import lombok.AllArgsConstructor;
 import lombok.Getter;
 import lombok.extern.slf4j.Slf4j;
@@ -190,7 +191,12 @@ public abstract class AbstractConfig extends AbstractSdpComponent implements Con
     protected String backup() {
         String uuid = UUID.fastUUID().toString();
         Map<String, Branch> backend=MapUtil.newHashMap();
-        BeanUtil.copyProperties(this.branches,backend);
+        for (Map.Entry<String, Branch> entry : branches.entrySet()) {
+            String json = JSONUtil.toJsonStr(entry.getValue());
+            Branch deepCopy = JSONUtil.toBean(json, Branch.class);
+            backend.put(entry.getKey(), deepCopy);
+            entry.getValue().backupItems();
+        }
         backendMap.put(uuid,backend);
         return uuid;
     }
@@ -412,7 +418,7 @@ public abstract class AbstractConfig extends AbstractSdpComponent implements Con
     public void rollbackBranchHostsAfterShorten(String branchName, String ... hostnames) {
         Branch branch = this.branches.get(branchName);
         if(ObjectUtil.isNotEmpty(branch)) {
-            branch.rollbackConfigAfterExtend(hostnames);
+            branch.rollbackConfigAfterShorten(hostnames);
         } else {
             log.error("rollbackBranchHostsAfterShorten error：{}服务中的{}配置文件不存在{}分支", serve.getName(), this.getName(), branchName);
         }
@@ -490,6 +496,8 @@ public abstract class AbstractConfig extends AbstractSdpComponent implements Con
 
         @Getter
         private List<ConfigItem> items; // 分支配置文件内容
+        @Getter
+        private List<ConfigItem> itemsBackend; // 分支配置文件内容备份
 
         @Getter
         private  List<ConfigItem> configDictionary=CollUtil.newArrayList();//分支字典
@@ -540,7 +548,7 @@ public abstract class AbstractConfig extends AbstractSdpComponent implements Con
          **/
         private void rollbackConfigAfterExtend(String ... hostnames) {
             driver.abandonBranchHosts(getSelfMetadata(), Convert.toSet(String.class, hostnames));
-            this.driver.conform(getSelfMetadata(), this.getItems());
+            this.driver.conform(getSelfMetadata(), this.getItemsBackend());
         }
 
         /**
@@ -549,7 +557,7 @@ public abstract class AbstractConfig extends AbstractSdpComponent implements Con
          **/
         private void rollbackConfigAfterShorten(String ... hostnames) {
             driver.extendBranchHosts(getSelfMetadata(), Convert.toSet(String.class, hostnames));
-            this.driver.conform(getSelfMetadata(), this.getItems());
+            this.driver.conform(getSelfMetadata(),  this.getItemsBackend());
         }
 
 
@@ -665,6 +673,16 @@ public abstract class AbstractConfig extends AbstractSdpComponent implements Con
         private ConfigBranch getSelfMetadata() {
             return new ConfigBranch(this.name, AbstractConfig.this.getName(), getServeName(), this.type, this.getPaths());
         }
+
+        public void backupItems() {
+            itemsBackend.clear();
+            if (items != null) {
+                for (ConfigItem item : items) {
+                    itemsBackend.add(ObjectUtil.cloneByStream(item));
+                }
+            }
+        }
+
 
     }
 

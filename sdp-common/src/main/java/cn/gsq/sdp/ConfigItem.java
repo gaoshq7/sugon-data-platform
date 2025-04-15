@@ -6,6 +6,7 @@ import lombok.NoArgsConstructor;
 import lombok.Setter;
 import lombok.experimental.Accessors;
 
+import java.io.Serializable;
 import java.util.List;
 
 /**
@@ -21,7 +22,8 @@ import java.util.List;
 @NoArgsConstructor
 @AllArgsConstructor
 @Accessors(chain = true)
-public class ConfigItem {
+public class ConfigItem implements Serializable {
+    private static final long serialVersionUID = 1L;
 
     private String key; // 配置项主键
 
