@@ -190,13 +190,11 @@ public abstract class AbstractConfig extends AbstractSdpComponent implements Con
      **/
     protected String backup() {
         String uuid = UUID.fastUUID().toString();
+        this.branches.forEach((k,br)->{
+            br.backupItems();
+        });
         Map<String, Branch> backend=MapUtil.newHashMap();
-        for (Map.Entry<String, Branch> entry : branches.entrySet()) {
-            String json = JSONUtil.toJsonStr(entry.getValue());
-            Branch deepCopy = JSONUtil.toBean(json, Branch.class);
-            backend.put(entry.getKey(), deepCopy);
-            entry.getValue().backupItems();
-        }
+        BeanUtil.copyProperties(this.branches,backend);
         backendMap.put(uuid,backend);
         return uuid;
     }
@@ -497,7 +495,7 @@ public abstract class AbstractConfig extends AbstractSdpComponent implements Con
         @Getter
         private List<ConfigItem> items; // 分支配置文件内容
         @Getter
-        private List<ConfigItem> itemsBackend; // 分支配置文件内容备份
+        private List<ConfigItem> itemsBackend=CollUtil.newArrayList(); // 分支配置文件内容备份
 
         @Getter
         private  List<ConfigItem> configDictionary=CollUtil.newArrayList();//分支字典
@@ -548,6 +546,10 @@ public abstract class AbstractConfig extends AbstractSdpComponent implements Con
          **/
         private void rollbackConfigAfterExtend(String ... hostnames) {
             driver.abandonBranchHosts(getSelfMetadata(), Convert.toSet(String.class, hostnames));
+            System.out.println("------------");
+            if(getSelfMetadata().getConfigName().equals("server.properties")){
+                System.out.println(JSONUtil.toJsonStr(this.getItemsBackend()));
+            }
             this.driver.conform(getSelfMetadata(), this.getItemsBackend());
         }
 
