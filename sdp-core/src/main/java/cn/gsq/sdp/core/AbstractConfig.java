@@ -546,10 +546,6 @@ public abstract class AbstractConfig extends AbstractSdpComponent implements Con
          **/
         private void rollbackConfigAfterExtend(String ... hostnames) {
             driver.abandonBranchHosts(getSelfMetadata(), Convert.toSet(String.class, hostnames));
-            System.out.println("------------");
-            if(getSelfMetadata().getConfigName().equals("server.properties")){
-                System.out.println(JSONUtil.toJsonStr(this.getItemsBackend()));
-            }
             this.driver.conform(getSelfMetadata(), this.getItemsBackend());
         }
 
