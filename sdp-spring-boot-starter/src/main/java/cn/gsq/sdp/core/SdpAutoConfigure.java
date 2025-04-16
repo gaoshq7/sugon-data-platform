@@ -273,8 +273,22 @@ public class SdpAutoConfigure {
     @ConditionalOnMissingBean(ResourceDriver.class)
     public ResourceDriver getResourceDriver() {
         log.warn("未定义安装包下载服务驱动：ResourceDriver，将采用默认策略。");
-        return resource -> {
+        return new ResourceDriver() {
 
+            @Override
+            public void download(Resource resource) {
+
+            }
+
+            @Override
+            public boolean isSdpAvailable(String version) {
+                return false;
+            }
+
+            @Override
+            public boolean isServeAvailable(String version, String servename) {
+                return false;
+            }
         };
     }
 
