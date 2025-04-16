@@ -17,4 +17,14 @@ public interface ResourceDriver {
      **/
     void download(Resource resource);
 
+    /**
+     * @Description : sdp版本是否可用
+     **/
+    boolean isSdpAvailable(String version);
+
+    /**
+     * @Description : sdp版本是否可用
+     **/
+    boolean isServeAvailable(String version, String servename);
+
 }

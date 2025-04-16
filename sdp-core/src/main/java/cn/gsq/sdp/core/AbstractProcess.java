@@ -281,6 +281,7 @@ public abstract class AbstractProcess<T extends AbstractHost> extends AbstractAp
                         this.serve.getAllConfigs().forEach(config -> {
                             config.getBranchNames().forEach(s -> config.addBranchHosts(s,hostname));
                         });
+                        host.startProcess(this);
                         this.logDriver.log(RunLogLevel.INFO, hostname + "主机扩容" + this.getName() + "进程成功。");
                     } catch (Exception e) {
                         this.logDriver.log(RunLogLevel.ERROR, hostname + "主机扩容" + this.getName() + "进程失败。");
@@ -321,10 +322,15 @@ public abstract class AbstractProcess<T extends AbstractHost> extends AbstractAp
 
                     try {
                         this.shorten(host);
+                        host.stopProcess(this);
+                        this.logDriver.log(RunLogLevel.INFO, host.getHostname() + "主机" + this.getName() + "进程已停止。");
                         this.deleteHosts(hostname);
-                        this.serve.getAllConfigs().forEach(config -> {
-                            config.getBranchNames().forEach(s -> config.delBranchHosts(s,hostname));
-                        });
+                        // 如果主机已经不包含在当前所在的服务中，则去掉所有配置文件的所有分支。
+                        if (host.isIncludeServe(this.serve)) {
+                            this.serve.getAllConfigs().forEach(
+                                    config -> config.getBranchNames().forEach(b -> config.delBranchHosts(b, hostname))
+                            );
+                        }
                         this.logDriver.log(RunLogLevel.INFO, hostname + "主机缩容" + this.getName() + "进程成功。");
                     } catch (Exception e) {
                         this.logDriver.log(RunLogLevel.ERROR, hostname + "主机缩容" + this.getName() + "进程失败。");
@@ -540,9 +546,7 @@ public abstract class AbstractProcess<T extends AbstractHost> extends AbstractAp
      * @Description : 服务扩容
      **/
     protected void extend(AbstractHost host) {
-        if (this.isDynamic()) {
-            throw new RuntimeException(this.getName() + " 进程扩容函数缺失。");
-        } else {
+        if (!this.isDynamic()) {
             throw new RuntimeException(this.getName() + " 进程不允许扩容操作。");
         }
     }
@@ -551,9 +555,7 @@ public abstract class AbstractProcess<T extends AbstractHost> extends AbstractAp
      * @Description : 服务缩容
      **/
     protected void shorten(AbstractHost host) {
-        if (this.isDynamic()) {
-            throw new RuntimeException(this.getName() + " 进程缩容函数缺失。");
-        } else {
+        if (!this.isDynamic()) {
             throw new RuntimeException(this.getName() + " 进程不允许缩容操作。");
         }
     }

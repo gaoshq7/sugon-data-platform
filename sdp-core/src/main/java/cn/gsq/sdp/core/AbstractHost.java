@@ -13,6 +13,8 @@ import java.io.FileNotFoundException;
 import java.net.InetSocketAddress;
 import java.util.List;
 import java.util.Objects;
+import java.util.Set;
+import java.util.stream.Collectors;
 
 import static cn.gsq.sdp.SdpPropertiesFinal.Command.C_GRAB;
 
@@ -443,6 +445,21 @@ public abstract class AbstractHost extends AbstractExecutor {
      */
     protected void appNotice(AppEvent event, String serveName, String msg) {
         this.broadcastDriver.appNotice(this.hostname, event, serveName, msg);
+    }
+
+    /**
+     * @Description : 是否涵盖服务的某些进程
+     */
+    protected boolean isIncludeServe(AbstractServe serve) {
+        boolean result = false;
+        List<AbstractProcess<AbstractHost>> processes = serve.getProcesses();
+        Set<AbstractHost> hosts = processes.stream()
+                .flatMap(process -> process.getHosts().stream())
+                .collect(Collectors.toSet());
+        if (hosts.contains(this)) {
+            result = true;
+        }
+        return result;
     }
 
     /**
