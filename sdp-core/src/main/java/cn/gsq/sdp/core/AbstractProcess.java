@@ -278,6 +278,9 @@ public abstract class AbstractProcess<T extends AbstractHost> extends AbstractAp
                         this.extend(host);
                         this.addHosts(hostname);
                         // ⚠️ 此处应有同步各个主机配置文件操作
+                        this.serve.getAllConfigs().forEach(config -> {
+                            config.getBranchNames().forEach(s -> config.addBranchHosts(s,hostname));
+                        });
                         this.logDriver.log(RunLogLevel.INFO, hostname + "主机扩容" + this.getName() + "进程成功。");
                     } catch (Exception e) {
                         this.logDriver.log(RunLogLevel.ERROR, hostname + "主机扩容" + this.getName() + "进程失败。");
@@ -319,6 +322,9 @@ public abstract class AbstractProcess<T extends AbstractHost> extends AbstractAp
                     try {
                         this.shorten(host);
                         this.deleteHosts(hostname);
+                        this.serve.getAllConfigs().forEach(config -> {
+                            config.getBranchNames().forEach(s -> config.delBranchHosts(s,hostname));
+                        });
                         this.logDriver.log(RunLogLevel.INFO, hostname + "主机缩容" + this.getName() + "进程成功。");
                     } catch (Exception e) {
                         this.logDriver.log(RunLogLevel.ERROR, hostname + "主机缩容" + this.getName() + "进程失败。");
