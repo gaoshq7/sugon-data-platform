@@ -1,8 +1,10 @@
 package cn.gsq.sdp.core;
 
 import cn.gsq.common.config.GalaxySpringUtil;
+import cn.gsq.sdp.SdpBaseInfo;
 import cn.gsq.sdp.SdpPropertiesFinal;
 import cn.gsq.sdp.core.annotation.*;
+import cn.gsq.sdp.driver.ResourceDriver;
 import cn.hutool.core.collection.CollUtil;
 import cn.hutool.core.collection.ListUtil;
 import cn.hutool.core.convert.Convert;
@@ -64,8 +66,13 @@ public class SdpEnvManager {
     /**
      * @Description : 获取版本号列表
      **/
-    public List<String> getVersions() {
-        List<String> versions = CollUtil.map(this.sdpMetas, SdpMeta::getVersion, true);
+    public List<SdpBaseInfo> getVersions() {
+        ResourceDriver driver = GalaxySpringUtil.getBean(ResourceDriver.class);
+        List<SdpBaseInfo> versions = CollUtil.map(
+                this.sdpMetas,
+                meta -> new SdpBaseInfo(meta.getVersion(), driver.isSdpAvailable(meta.getVersion())),
+                true
+        );
         return ListUtil.unmodifiable(versions);
     }
 

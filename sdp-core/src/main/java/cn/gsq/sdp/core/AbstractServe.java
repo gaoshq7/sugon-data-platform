@@ -392,6 +392,13 @@ public abstract class AbstractServe extends AbstractApp {
     }
 
     /**
+     * 判断当前服务在sdp环境中是否存在
+     */
+    public boolean isExist() {
+        return this.resourceDriver.isServeAvailable(this.sdpManager.getVersion(), this.getName());
+    }
+
+    /**
      * @Description : 所有进程还原后服务的操作
      */
     protected void afterRecover() {}
