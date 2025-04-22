@@ -281,6 +281,16 @@ public abstract class AbstractProcess<T extends AbstractHost> extends AbstractAp
                         this.serve.getAllConfigs().forEach(config -> {
                             config.getBranchNames().forEach(s -> config.addBranchHosts(s,hostname));
                         });
+                        // ⚠️ 如果需要额外依赖别的服务的配置,在此处同步
+                        if (this.serve.getClass().getAnnotation(Serve.class).appends().length > 0) {
+                            String[] appends = this.serve.getClass().getAnnotation(Serve.class).appends();
+                            for (String append : appends) {
+                                List<String> split = StrUtil.split(append, StrUtil.COLON);
+                                AbstractConfig config = CollUtil.findOne(GalaxySpringUtil.getBeans(AbstractConfig.class),
+                                        c -> c.getServeName().equals(split.get(0)) && c.getName().equals(split.get(1)));
+                                config.getBranchNames().forEach(s -> config.addBranchHosts(s,hostname));
+                            }
+                        }
                         host.startProcess(this);
                         this.logDriver.log(RunLogLevel.INFO, hostname + "主机扩容" + this.getName() + "进程成功。");
                     } catch (Exception e) {
@@ -330,6 +340,16 @@ public abstract class AbstractProcess<T extends AbstractHost> extends AbstractAp
                             this.serve.getAllConfigs().forEach(
                                     config -> config.getBranchNames().forEach(b -> config.delBranchHosts(b, hostname))
                             );
+                        }
+                        // ⚠️ 如果还额外依赖别的服务的配置,在此处移除
+                        if (this.serve.getClass().getAnnotation(Serve.class).appends().length > 0) {
+                            String[] appends = this.serve.getClass().getAnnotation(Serve.class).appends();
+                            for (String append : appends) {
+                                List<String> split = StrUtil.split(append, StrUtil.COLON);
+                                AbstractConfig config = CollUtil.findOne(GalaxySpringUtil.getBeans(AbstractConfig.class),
+                                        c -> c.getServeName().equals(split.get(0)) && c.getName().equals(split.get(1)));
+                                config.getBranchNames().forEach(b -> config.delBranchHosts(b, hostname));
+                            }
                         }
                         this.logDriver.log(RunLogLevel.INFO, hostname + "主机缩容" + this.getName() + "进程成功。");
                     } catch (Exception e) {
