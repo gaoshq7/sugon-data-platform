@@ -1,6 +1,7 @@
 package cn.gsq.sdp.core;
 
 import cn.gsq.graph.dag.Vertex;
+import cn.gsq.sdp.core.utils.CommonUtil;
 import cn.gsq.sdp.core.utils.DagUtil;
 import cn.hutool.core.collection.ListUtil;
 import cn.hutool.core.map.MapUtil;
@@ -61,11 +62,15 @@ public enum ServeHandler {
      * @Date : 10:22 上午
      * @note : ⚠️ 根据DAG图启动相关进程 !
      **/
-    public void start(AbstractServe serve) {
+    void start(AbstractServe serve) {
         // 根据DAG图启动服务
         for(Vertex<AbstractProcess<AbstractHost>> vertex : DagUtil.getDagResult(serve.getProcesses())) {
             AbstractProcess<AbstractHost> process = vertex.getTask();
             process.start();
+            boolean result = CommonUtil.waitForSignal(process::isAvailable, 60000, 4000);
+            if(!result) {
+                throw new RuntimeException(process.getName() + " 进程启动失败，请移步环境中检查日志。");
+            }
         }
     }
 
@@ -77,7 +82,7 @@ public enum ServeHandler {
      * @Date : 10:24 上午
      * @note : ⚠️ 反向DAG图停止相关进程 !
      **/
-    public void stop(AbstractServe serve) {
+    void stop(AbstractServe serve) {
         List<Vertex<AbstractProcess<AbstractHost>>> vertices =
                 ListUtil.reverse(ListUtil.toList(DagUtil.getDagResult(serve.getProcesses())));
         for(Vertex<AbstractProcess<AbstractHost>> vertex : vertices) {
@@ -94,7 +99,7 @@ public enum ServeHandler {
      * @Date : 10:29 上午
      * @note : An art cell !
      **/
-    public boolean isAvailable(AbstractServe serve) {
+    boolean isAvailable(AbstractServe serve) {
         List<AbstractProcess<AbstractHost>> processes = serve.getProcesses();
         if(!isInstalled(serve)) return false;
         boolean check = true;
@@ -116,7 +121,7 @@ public enum ServeHandler {
      * @Date : 10:32 上午
      * @note : An art cell !
      **/
-    public boolean isInstalled(AbstractServe serve) {
+    boolean isInstalled(AbstractServe serve) {
         if(serve.isLocked()) {
             return false;   // 服务被锁定视为临界状态，非已安装
         }

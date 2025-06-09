@@ -6,10 +6,11 @@
     <parent>
         <groupId>io.github.gaoshq7</groupId>
         <artifactId>sdp-parent</artifactId>
-        <version>1.0.0-Alpha</version>
+        <version>1.0.0-Beta</version>
     </parent>
 
     <artifactId>sdp-core</artifactId>
+    <name>sdp-core</name>
 
     <dependencies>
         <dependency>
