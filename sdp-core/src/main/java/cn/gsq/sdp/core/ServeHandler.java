@@ -67,7 +67,7 @@ public enum ServeHandler {
         for(Vertex<AbstractProcess<AbstractHost>> vertex : DagUtil.getDagResult(serve.getProcesses())) {
             AbstractProcess<AbstractHost> process = vertex.getTask();
             process.start();
-            boolean result = CommonUtil.waitForSignal(process::isAvailable, 60000, 4000);
+            boolean result = CommonUtil.waitForSignal(process::isAvailable, 180000, 4000);
             if(!result) {
                 throw new RuntimeException(process.getName() + " 进程启动失败，请移步环境中检查日志。");
             }

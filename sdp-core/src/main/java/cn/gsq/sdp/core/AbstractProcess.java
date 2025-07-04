@@ -4,6 +4,7 @@ import cn.gsq.common.config.GalaxySpringUtil;
 import cn.gsq.sdp.*;
 import cn.gsq.sdp.core.annotation.*;
 import cn.gsq.sdp.core.annotation.Process;
+import cn.gsq.sdp.core.utils.CommonUtil;
 import cn.hutool.core.collection.CollUtil;
 import cn.hutool.core.convert.Convert;
 import cn.hutool.core.lang.Pair;
@@ -292,6 +293,10 @@ public abstract class AbstractProcess<T extends AbstractHost> extends AbstractAp
                             }
                         }
                         host.startProcess(this);
+                        boolean result = CommonUtil.waitForSignal(() -> host.isProcessActive(this), 180000, 4000);
+                        if(!result) {
+                            throw new RuntimeException(this.getName() + " 进程在" + hostname + "节点扩容启动时超时失败，请移步环境中检查日志。");
+                        }
                         this.logDriver.log(RunLogLevel.INFO, hostname + "主机扩容" + this.getName() + "进程成功。");
                     } catch (Exception e) {
                         this.logDriver.log(RunLogLevel.ERROR, hostname + "主机扩容" + this.getName() + "进程失败。");
