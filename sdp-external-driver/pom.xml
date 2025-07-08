@@ -6,7 +6,7 @@
     <parent>
         <groupId>io.github.gaoshq7</groupId>
         <artifactId>sdp-parent</artifactId>
-        <version>1.1.0-SNAPSHOT</version>
+        <version>1.0.0-Gamma</version>
     </parent>
 
     <artifactId>sdp-external-driver</artifactId>
