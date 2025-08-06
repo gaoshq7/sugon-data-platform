@@ -164,9 +164,9 @@ public abstract class AbstractExecutor extends AbstractSdpComponent implements A
             if(this instanceof AbstractHost)
                 isAvailable = ((AbstractHost)this).isHostActive();
             if(isAvailable){
-                return "正常";
+                return AppStatus.RUNNING.name();
             }else{
-                return "故障";
+                return AppStatus.FAULT.name();
             }
         }else{
             return status.name();

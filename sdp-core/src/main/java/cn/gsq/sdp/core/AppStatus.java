@@ -27,6 +27,14 @@ public enum AppStatus {
 
     },
 
+    RUNNING("正常"){
+
+    },
+
+    FAULT("故障"){
+
+    },
+
     CHECK_AVAILABLE("是否可用"){
         @Override
         public boolean isAvailable(AbstractApp app) {
