@@ -23,10 +23,14 @@ public enum AppStatus {
 
     },
 
+    OPERATING("操作中"){
+
+    },
+
     CHECK_AVAILABLE("是否可用"){
         @Override
         public boolean isAvailable(AbstractApp app) {
-            return super.isAvailable(app);
+            return app.isAvailable();
         }
     };
 

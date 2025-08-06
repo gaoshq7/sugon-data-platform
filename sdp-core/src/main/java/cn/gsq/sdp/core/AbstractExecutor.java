@@ -3,13 +3,13 @@ package cn.gsq.sdp.core;
 import cn.gsq.sdp.Operation;
 import cn.gsq.sdp.core.annotation.Available;
 import cn.gsq.sdp.core.annotation.Function;
+import cn.gsq.sdp.core.annotation.Status;
 import cn.hutool.core.collection.CollUtil;
 import cn.hutool.core.util.ObjectUtil;
 import cn.hutool.core.util.ReflectUtil;
 import lombok.Getter;
 import lombok.Setter;
 import lombok.extern.slf4j.Slf4j;
-import net.sf.cglib.proxy.Enhancer;
 import org.springframework.core.annotation.AnnotationUtils;
 
 import java.lang.reflect.Method;
@@ -99,27 +99,34 @@ public abstract class AbstractExecutor extends AbstractSdpComponent implements A
         }
     }
 
+    /**
+     * 代理执行函数方法
+     * 根据函数ID查找对应方法，设置状态并执行该方法
+     *
+     * @param functionID 函数唯一标识符，用于查找对应的方法
+     * @param params 可变参数列表，传递给目标方法的参数
+     */
     public void proxyFunction(String functionID, Object... params) {
-        //1、根据functionID找到函数
-        //2、将status的值修改为注解中指定的值
-        //3、使用cglib代理执行函数
-        //4、执行完毕还原status的值
-
         try {
+
+            //1、根据functionID找到函数
             Method method = resolveFunction(functionID);
             if (method == null) {
                 throw new IllegalArgumentException("找不到 functionID 对应的方法: " + functionID);
             }
 
-            // 用 CGLIB 生成一个带拦截器的 proxy（拦截器内部会设/还原 status）
-            Enhancer enhancer = new Enhancer();
-            enhancer.setSuperclass(this.getClass());
-            enhancer.setCallback(new StatusMethodInterceptor(this));
-            Object proxy = enhancer.create();
+            //2、将status的值修改为注解中指定的值
+            Status statusAnno = method.getAnnotation(Status.class);
+            status = statusAnno != null ? statusAnno.value() : AppStatus.CHECK_AVAILABLE;
 
-            // 反射调用：注意参数匹配（此处假设 params 顺序、类型完全对应）
-            method.invoke(proxy, params);
+            //3、执行函数
+            method.invoke(this, params);
+
+            //4、执行完毕还原status的值
+            status=AppStatus.CHECK_AVAILABLE;
         } catch (Exception e) {
+            //4、执行完毕还原status的值
+            status=AppStatus.CHECK_AVAILABLE;
             // 你可以在这里统一日志/错误处理
             throw new RuntimeException("通过 proxyFunction 执行失败: " + e.getMessage(), e);
         }
@@ -145,5 +152,26 @@ public abstract class AbstractExecutor extends AbstractSdpComponent implements A
         }
         return null;
     }
+
+    public String getExecutorStatus() {
+        if(status.equals(AppStatus.CHECK_AVAILABLE)){
+            //根据具体的服务 进程 主机 判断状态 结果为 正常/故障
+            boolean isAvailable = false;
+            if(this instanceof AbstractServe)
+                isAvailable = ((AbstractServe)this).isAvailable();
+            if(this instanceof AbstractProcess)
+                isAvailable = ((AbstractProcess)this).isAvailable();
+            if(this instanceof AbstractHost)
+                isAvailable = ((AbstractHost)this).isHostActive();
+            if(isAvailable){
+                return "正常";
+            }else{
+                return "故障";
+            }
+        }else{
+            return status.name();
+        }
+    }
+
 
 }
