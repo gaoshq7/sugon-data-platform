@@ -10,6 +10,7 @@ import cn.hutool.core.util.ReflectUtil;
 import lombok.Getter;
 import lombok.Setter;
 import lombok.extern.slf4j.Slf4j;
+import org.checkerframework.checker.units.qual.A;
 import org.springframework.core.annotation.AnnotationUtils;
 
 import java.lang.reflect.Method;
@@ -164,12 +165,12 @@ public abstract class AbstractExecutor extends AbstractSdpComponent implements A
             if(this instanceof AbstractHost)
                 isAvailable = ((AbstractHost)this).isHostActive();
             if(isAvailable){
-                return AppStatus.RUNNING.name();
+                return AppStatus.RUNNING.getName();
             }else{
-                return AppStatus.FAULT.name();
+                return AppStatus.FAULT.getName();
             }
         }else{
-            return status.name();
+            return status.getName();
         }
     }
 
