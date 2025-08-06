@@ -3,7 +3,9 @@ package cn.gsq.sdp.core;
 import cn.gsq.common.config.GalaxySpringUtil;
 import cn.gsq.graph.dag.Vertex;
 import cn.gsq.sdp.*;
+import cn.gsq.sdp.core.annotation.Function;
 import cn.gsq.sdp.core.annotation.Serve;
+import cn.gsq.sdp.core.annotation.Status;
 import cn.gsq.sdp.core.utils.DagUtil;
 import cn.hutool.core.collection.CollUtil;
 import cn.hutool.core.collection.ListUtil;
@@ -212,6 +214,8 @@ public abstract class AbstractServe extends AbstractApp {
      * @Description : 启动服务
      **/
     @Override
+    @Status(value = AppStatus.STARTING)
+    @Function(name = "启动", id = "start")
     public synchronized void start() {
         this.handler.start(this);
     }
@@ -220,8 +224,20 @@ public abstract class AbstractServe extends AbstractApp {
      * @Description : 停止服务
      **/
     @Override
+    @Status(value = AppStatus.STOPPING)
+    @Function(name = "停止", id = "stop")
     public synchronized void stop() {
         this.handler.stop(this);
+    }
+
+    /**
+     * @Description : 重启服务
+     **/
+    @Override
+    @Status(value = AppStatus.RESTARTING)
+    @Function(name = "重启", id = "restart")
+    public void restart() {
+        super.restart();
     }
 
     /**
