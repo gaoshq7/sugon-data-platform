@@ -90,14 +90,7 @@ public abstract class AbstractApp extends AbstractExecutor {
     /**
      * @Description : 服务或进程是否可用
      **/
+    @Deprecated
     public abstract boolean isAvailable();
-
-    /**
-     * @Description :获取服务或者进程的状态
-     **/
-
-    public AppStatus getAppStatus() {
-        return this.getStatus();
-    }
 
 }

@@ -23,10 +23,6 @@ public enum AppStatus {
 
     },
 
-    OPERATING("操作中"){
-
-    },
-
     INSTALLING("安装中"){
 
     },
@@ -39,7 +35,11 @@ public enum AppStatus {
 
     },
 
-    FAULT("故障"){
+    FAULT("不可用"){
+
+    },
+
+    OPERATING("操作中"){
 
     },
 
@@ -55,6 +55,5 @@ public enum AppStatus {
     public boolean isAvailable(AbstractApp app){
         return false;
     }
-
 
 }

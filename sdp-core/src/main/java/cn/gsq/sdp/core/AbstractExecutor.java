@@ -33,7 +33,7 @@ public abstract class AbstractExecutor extends AbstractSdpComponent implements A
 
     @Setter
     @Getter
-    private AppStatus status =AppStatus.CHECK_AVAILABLE;// app状态
+    private AppStatus status = AppStatus.CHECK_AVAILABLE;// app状态
 
     // 缓存 functionID -> Method
     private final Map<String, Method> functionCache = new ConcurrentHashMap<>();
@@ -82,6 +82,7 @@ public abstract class AbstractExecutor extends AbstractSdpComponent implements A
      * @Date : 2024/6/13
      * @note :
      **/
+    @Deprecated
     public void doFunction(String functionID, Object... params) {
         for(Method method : this.getClass().getMethods()) {
             Function function = AnnotationUtils.findAnnotation(method, Function.class);
@@ -164,12 +165,12 @@ public abstract class AbstractExecutor extends AbstractSdpComponent implements A
                 isAvailable = ((AbstractProcess)this).isAvailable();
             if(this instanceof AbstractHost)
                 isAvailable = ((AbstractHost)this).isHostActive();
-            if(isAvailable){
+            if(isAvailable) {
                 return AppStatus.RUNNING.getName();
-            }else{
+            } else {
                 return AppStatus.FAULT.getName();
             }
-        }else{
+        } else {
             return status.getName();
         }
     }
