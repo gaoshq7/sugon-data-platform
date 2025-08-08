@@ -10,7 +10,6 @@ import cn.hutool.core.util.ReflectUtil;
 import lombok.Getter;
 import lombok.Setter;
 import lombok.extern.slf4j.Slf4j;
-import org.checkerframework.checker.units.qual.A;
 import org.springframework.core.annotation.AnnotationUtils;
 
 import java.lang.reflect.Method;
@@ -39,6 +38,9 @@ public abstract class AbstractExecutor extends AbstractSdpComponent implements A
     private final Map<String, Method> functionCache = new ConcurrentHashMap<>();
 
     protected final List<Operation> functions;   // 功能列表
+
+    @Setter
+    private Runnable task;//一个函数接口
 
     protected AbstractExecutor() {
         this.functions = Arrays.stream(this.getClass().getMethods())
@@ -120,15 +122,21 @@ public abstract class AbstractExecutor extends AbstractSdpComponent implements A
             //2、将status的值修改为注解中指定的值
             Status statusAnno = method.getAnnotation(Status.class);
             status = statusAnno != null ? statusAnno.value() : AppStatus.CHECK_AVAILABLE;
+            if(ObjectUtil.isNotNull(task))
+                task.run();// 发送通知
 
             //3、执行函数
             method.invoke(this, params);
 
             //4、执行完毕还原status的值
             status=AppStatus.CHECK_AVAILABLE;
+            if(ObjectUtil.isNotNull(task))
+                task.run();// 发送通知
         } catch (Exception e) {
             //4、执行完毕还原status的值
             status=AppStatus.CHECK_AVAILABLE;
+            if(ObjectUtil.isNotNull(task))
+                task.run();// 发送通知
             // 你可以在这里统一日志/错误处理
             throw new RuntimeException("通过 proxyFunction 执行失败: " + e.getMessage(), e);
         }
