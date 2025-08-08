@@ -121,6 +121,8 @@ public abstract class AbstractServe extends AbstractApp {
      * @Note : ⚠️ 安装过程任意一步出现异常，异常抛出、安装终止；第五步需将所有的进程安装都跑一遍，如遇异常则抛出第一个 !
      **/
     @Override
+    @Status(value = AppStatus.INSTALLING)
+    @Function(name = "安装", id = "install",isReveal=false)
     public synchronized void install(Blueprint.Serve blueprint) {
         this.locked = true; // 锁定组件服务，开始安装
         try {
@@ -257,7 +259,7 @@ public abstract class AbstractServe extends AbstractApp {
     }
 
     /**
-     * @Description : 服务是否安装
+     * @Description : 服务是否已安装(安装中 卸载中也算)
      **/
     @Override
     public boolean isInstalled(){
@@ -284,6 +286,8 @@ public abstract class AbstractServe extends AbstractApp {
      * @Description : 卸载服务
      * @note : ⚠️ 逻辑与复原相同 !
      **/
+    @Status(value = AppStatus.UNINSTALLING)
+    @Function(name = "卸载", id = "uninstall", isReveal=false)
     public synchronized void uninstall() {
         this.locked = true; // 锁定服务
         try {

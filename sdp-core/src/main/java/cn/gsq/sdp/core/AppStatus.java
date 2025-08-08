@@ -27,6 +27,14 @@ public enum AppStatus {
 
     },
 
+    INSTALLING("安装中"){
+
+    },
+
+    UNINSTALLING("卸载中"){
+
+    },
+
     RUNNING("正常"){
 
     },

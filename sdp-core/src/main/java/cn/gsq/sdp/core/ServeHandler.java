@@ -123,7 +123,7 @@ public enum ServeHandler {
      **/
     boolean isInstalled(AbstractServe serve) {
         if(serve.isLocked()) {
-            return false;   // 服务被锁定视为临界状态，非已安装
+            return true;   // 服务被锁定视为临界状态，视为已安装
         }
         List<AbstractProcess<AbstractHost>> processes = serve.getProcesses();
         boolean check = false;
