@@ -2,6 +2,7 @@ package cn.gsq.sdp.core;
 
 import cn.gsq.sdp.*;
 import cn.gsq.sdp.core.annotation.Function;
+import cn.gsq.sdp.core.annotation.Status;
 import cn.hutool.core.collection.CollUtil;
 import cn.hutool.core.net.NetUtil;
 import cn.hutool.core.thread.ThreadUtil;
@@ -181,6 +182,7 @@ public abstract class AbstractHost extends AbstractExecutor {
      * @Description : 启动进程
      **/
     @Function(name = "启动进程", id = "startProcess", isReveal = false)
+    @Status(value = AppStatus.STARTING)
     public void startProcess(String processname) {
         AbstractProcess<AbstractHost> process = this.sdpManager.getProcessByName(processname);
         RpcRespond<String> respond = this.rpcDriver.execute(
@@ -196,6 +198,7 @@ public abstract class AbstractHost extends AbstractExecutor {
      * @Description : 停止进程
      **/
     @Function(name = "停止进程", id = "stopProcess", isReveal = false)
+    @Status(value = AppStatus.STOPPING)
     public void stopProcess(String processname) {
         AbstractProcess<AbstractHost> process = this.sdpManager.getProcessByName(processname);
         RpcRespond<String> respond = this.rpcDriver.execute(
@@ -211,6 +214,7 @@ public abstract class AbstractHost extends AbstractExecutor {
      * @Description : 重启进程
      **/
     @Function(name = "重启进程", id = "restartProcess", isReveal = false)
+    @Status(value = AppStatus.RESTARTING)
     public void restart(String processname) {
         this.stopProcess(processname);
         ThreadUtil.safeSleep(3000);

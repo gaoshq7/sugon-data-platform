@@ -217,7 +217,7 @@ public abstract class AbstractServe extends AbstractApp {
      **/
     @Override
     @Status(value = AppStatus.STARTING)
-    @Function(name = "启动", id = "start")
+    @Function(name = "启动", id = "start", isReveal = false)
     public synchronized void start() {
         this.handler.start(this);
     }
@@ -227,7 +227,7 @@ public abstract class AbstractServe extends AbstractApp {
      **/
     @Override
     @Status(value = AppStatus.STOPPING)
-    @Function(name = "停止", id = "stop")
+    @Function(name = "停止", id = "stop", isReveal = false)
     public synchronized void stop() {
         this.handler.stop(this);
     }
@@ -237,7 +237,7 @@ public abstract class AbstractServe extends AbstractApp {
      **/
     @Override
     @Status(value = AppStatus.RESTARTING)
-    @Function(name = "重启", id = "restart")
+    @Function(name = "重启", id = "restart", isReveal = false)
     public void restart() {
         super.restart();
     }
