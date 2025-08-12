@@ -209,7 +209,7 @@ public abstract class AbstractProcess<T extends AbstractHost> extends AbstractAp
      * @note : ⚠️ 只启动进程宕机状态的主机 !
      **/
     @Override
-    @Function(name = "启动", id = "start", isReveal = false)
+    @Function(name = "启动", id = "start")
     @Status(value = AppStatus.STARTING)
     public synchronized void start() {
         Predicate<T> function = host -> host.isProcessActive(this);
@@ -231,7 +231,7 @@ public abstract class AbstractProcess<T extends AbstractHost> extends AbstractAp
      * @note : ⚠️ 只停止进程启动状态的主机 !
      **/
     @Override
-    @Function(name = "停止", id = "stop", isReveal = false)
+    @Function(name = "停止", id = "stop")
     @Status(value = AppStatus.STOPPING)
     public synchronized void stop() {
         Predicate<T> function = host -> host.isProcessActive(this);
@@ -252,7 +252,7 @@ public abstract class AbstractProcess<T extends AbstractHost> extends AbstractAp
      * @Description : 重启进程
      **/
     @Override
-    @Function(name = "重启", id = "restart", isReveal = false)
+    @Function(name = "重启", id = "restart")
     @Status(value = AppStatus.RESTARTING)
     public synchronized void restart() {
         super.restart();
