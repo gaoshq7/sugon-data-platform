@@ -30,8 +30,6 @@ import java.util.stream.Collectors;
 @Slf4j
 public abstract class AbstractExecutor extends AbstractSdpComponent implements Action {
 
-    @Setter
-    @Getter
     private AppStatus status = AppStatus.CHECK_AVAILABLE;// app状态
 
     // 缓存 functionID -> Method
@@ -167,10 +165,8 @@ public abstract class AbstractExecutor extends AbstractSdpComponent implements A
         if(status.equals(AppStatus.CHECK_AVAILABLE)){
             //根据具体的服务 进程 主机 判断状态 结果为 正常/故障
             boolean isAvailable = false;
-            if(this instanceof AbstractServe)
-                isAvailable = ((AbstractServe)this).isAvailable();
-            if(this instanceof AbstractProcess)
-                isAvailable = ((AbstractProcess)this).isAvailable();
+            if(this instanceof AbstractApp)
+                isAvailable = ((AbstractApp)this).isAvailable();
             if(this instanceof AbstractHost)
                 isAvailable = ((AbstractHost)this).isHostActive();
             if(isAvailable) {
