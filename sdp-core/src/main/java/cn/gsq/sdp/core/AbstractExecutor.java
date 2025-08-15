@@ -38,7 +38,7 @@ public abstract class AbstractExecutor extends AbstractSdpComponent implements A
     protected final List<Operation> functions;   // 功能列表
 
     @Setter
-    private Runnable task;//一个函数接口
+    protected Runnable task;//一个函数接口
 
     protected AbstractExecutor() {
         this.functions = Arrays.stream(this.getClass().getMethods())

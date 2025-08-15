@@ -5,6 +5,7 @@ import cn.gsq.sdp.core.annotation.Function;
 import cn.hutool.core.collection.CollUtil;
 import cn.hutool.core.net.NetUtil;
 import cn.hutool.core.thread.ThreadUtil;
+import cn.hutool.core.util.ObjectUtil;
 import cn.hutool.core.util.StrUtil;
 import lombok.Getter;
 import lombok.extern.slf4j.Slf4j;
@@ -12,8 +13,10 @@ import lombok.extern.slf4j.Slf4j;
 import java.io.FileNotFoundException;
 import java.net.InetSocketAddress;
 import java.util.List;
+import java.util.Map;
 import java.util.Objects;
 import java.util.Set;
+import java.util.concurrent.ConcurrentHashMap;
 import java.util.stream.Collectors;
 
 import static cn.gsq.sdp.SdpPropertiesFinal.Command.C_GRAB;
@@ -34,6 +37,8 @@ public abstract class AbstractHost extends AbstractExecutor {
 
     protected final List<HostGroup> groups;    // 主机分组（同一主机可存在多个分组）
 
+    protected Map<String, AppStatus> processStatus = new ConcurrentHashMap<>();//主机上面的进程及其状态信息，只维护中间态
+
     /**
      * @Description : ioc注册构造函数
      **/
@@ -47,6 +52,34 @@ public abstract class AbstractHost extends AbstractExecutor {
                     this.groups.add(group);
                 }
             }
+        }
+    }
+
+    /**
+     * 根据进程名称获取应用程序状态
+     *
+     * @param processName 进程名称
+     * @return AppStatus 应用程序状态，可能的值包括：
+     *         - AppStatus.RUNNING：进程正在运行
+     *         - AppStatus.FAULT：进程不存在或处于故障状态
+     *         - 缓存中的其他状态值
+     */
+    public AppStatus getStatusByProcessName(String processName) {
+        // 首先从缓存中获取进程状态
+        AppStatus appStatus = this.processStatus.get(processName);
+        if (appStatus == null) {
+            // 缓存中不存在时，从SDP管理器中获取进程对象
+            AbstractProcess<AbstractHost> process = this.sdpManager.getProcessByName(processName);
+            if (process != null) {
+                // 进程存在时，根据进程活跃状态判断返回运行中或故障状态
+                return isProcessActive(process) ? AppStatus.RUNNING : AppStatus.FAULT;
+            }else {
+                // 进程不存在，返回故障状态
+                return AppStatus.FAULT;
+            }
+        }else {
+            // 缓存中存在状态信息，直接返回
+            return appStatus;
         }
     }
 
@@ -182,13 +215,26 @@ public abstract class AbstractHost extends AbstractExecutor {
      **/
     @Function(name = "启动进程", id = "startProcess", isReveal = false)
     public void startProcess(String processname) {
-        AbstractProcess<AbstractHost> process = this.sdpManager.getProcessByName(processname);
-        RpcRespond<String> respond = this.rpcDriver.execute(
-                RpcRequest.createRequest(this.hostname, process.getHome(), process.getStart())
-        );
-        if(!respond.isSuccess()) {
-            log.error("主机{}中{}进程启动脚本执行错误: {}", this.hostname, process.getName(), respond.getContent());
-            throw new RuntimeException("主机" + this.hostname + "中" + process.getName() + "进程启动脚本执行错误:" + respond.getContent());
+        processStatus.put(processname, AppStatus.STARTING);
+        if(ObjectUtil.isNotNull(task))
+            task.run();// 发送通知
+        ThreadUtil.safeSleep(10000);//延迟10秒 看效果
+
+        try {
+            AbstractProcess<AbstractHost> process = this.sdpManager.getProcessByName(processname);
+            RpcRespond<String> respond = this.rpcDriver.execute(
+                    RpcRequest.createRequest(this.hostname, process.getHome(), process.getStart())
+            );
+            if(!respond.isSuccess()) {
+                log.error("主机{}中{}进程启动脚本执行错误: {}", this.hostname, process.getName(), respond.getContent());
+                throw new RuntimeException("主机" + this.hostname + "中" + process.getName() + "进程启动脚本执行错误:" + respond.getContent());
+            }
+        } catch (Exception e) {
+            throw new RuntimeException(e);
+        } finally {
+            processStatus.remove(processname);
+            if(ObjectUtil.isNotNull(task))
+                task.run();// 发送通知
         }
     }
 
@@ -197,13 +243,26 @@ public abstract class AbstractHost extends AbstractExecutor {
      **/
     @Function(name = "停止进程", id = "stopProcess", isReveal = false)
     public void stopProcess(String processname) {
-        AbstractProcess<AbstractHost> process = this.sdpManager.getProcessByName(processname);
-        RpcRespond<String> respond = this.rpcDriver.execute(
-                RpcRequest.createRequest(this.hostname, process.getHome(), process.getStop())
-        );
-        if(!respond.isSuccess()) {
-            log.error("主机{}中{}进程停止脚本执行错误: {}", this.hostname, process.getName(), respond.getContent());
-            throw new RuntimeException("主机" + this.hostname + "中" + process.getName() + "进程停止脚本执行错误:" + respond.getContent());
+        processStatus.put(processname, AppStatus.STOPPING);
+        if(ObjectUtil.isNotNull(task))
+            task.run();// 发送通知
+        ThreadUtil.safeSleep(10000);//延迟10秒 看效果
+
+        try {
+            AbstractProcess<AbstractHost> process = this.sdpManager.getProcessByName(processname);
+            RpcRespond<String> respond = this.rpcDriver.execute(
+                    RpcRequest.createRequest(this.hostname, process.getHome(), process.getStop())
+            );
+            if(!respond.isSuccess()) {
+                log.error("主机{}中{}进程停止脚本执行错误: {}", this.hostname, process.getName(), respond.getContent());
+                throw new RuntimeException("主机" + this.hostname + "中" + process.getName() + "进程停止脚本执行错误:" + respond.getContent());
+            }
+        } catch (Exception e) {
+            throw new RuntimeException(e);
+        } finally {
+            processStatus.remove(processname);
+            if(ObjectUtil.isNotNull(task))
+                task.run();// 发送通知
         }
     }
 
@@ -212,9 +271,40 @@ public abstract class AbstractHost extends AbstractExecutor {
      **/
     @Function(name = "重启进程", id = "restartProcess", isReveal = false)
     public void restart(String processname) {
-        this.stopProcess(processname);
-        ThreadUtil.safeSleep(3000);
-        this.startProcess(processname);
+
+        processStatus.put(processname, AppStatus.RESTARTING);
+        if(ObjectUtil.isNotNull(task))
+            task.run();// 发送通知
+        ThreadUtil.safeSleep(10000);//延迟10秒 看效果
+
+        try {
+            AbstractProcess<AbstractHost> process = this.sdpManager.getProcessByName(processname);
+            RpcRespond<String> stopRespond = this.rpcDriver.execute(
+                    RpcRequest.createRequest(this.hostname, process.getHome(), process.getStop())
+            );
+            if(!stopRespond.isSuccess()) {
+                log.error("主机{}中{}进程停止脚本执行错误: {}", this.hostname, process.getName(), stopRespond.getContent());
+                throw new RuntimeException("主机" + this.hostname + "中" + process.getName() + "进程停止脚本执行错误:" + stopRespond.getContent());
+            }
+
+            ThreadUtil.safeSleep(3000);
+
+            RpcRespond<String> startRespond = this.rpcDriver.execute(
+                    RpcRequest.createRequest(this.hostname, process.getHome(), process.getStart())
+            );
+            if(!startRespond.isSuccess()) {
+                log.error("主机{}中{}进程启动脚本执行错误: {}", this.hostname, process.getName(), startRespond.getContent());
+                throw new RuntimeException("主机" + this.hostname + "中" + process.getName() + "进程启动脚本执行错误:" + startRespond.getContent());
+            }
+        } catch (RuntimeException e) {
+            throw new RuntimeException("主机" + this.hostname + "中" + processname + "进程重启错误: "+e);
+        } finally {
+            processStatus.remove(processname);
+            if(ObjectUtil.isNotNull(task))
+                task.run();// 发送通知
+        }
+
+
     }
 
     /**
