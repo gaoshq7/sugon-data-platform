@@ -338,6 +338,10 @@ public abstract class AbstractHost extends AbstractExecutor {
                 String error = StrUtil.format("{}主机中{}进程启动脚本执行错误: {}", this.hostname, process.getName(), respond.getContent());
                 throw new RuntimeException(error);
             }
+            boolean result = CommonUtil.waitForSignal(() -> isProcessActive(process), 180000, 4000);
+            if(!result) {
+                throw new RuntimeException(process.getName() + " 进程在" + this.hostname + "启动时超时，请移步环境中检查日志。");
+            }
         } catch (Exception e) {
             String error = StrUtil.format("{}主机启动{}进程时Rpc服务异常: {}", this.getName(), process.getName(), e.getMessage());
             log.error("主机{}启动进程{}时系统错误", this.getName(), process.getName(), e);
@@ -356,6 +360,11 @@ public abstract class AbstractHost extends AbstractExecutor {
                 log.error("{}主机中{}进程停止脚本执行错误: {}", this.hostname, process.getName(), respond.getContent());
                 String error = StrUtil.format("{}主机中{}进程停止脚本执行错误: {}", this.hostname, process.getName(), respond.getContent());
                 throw new RuntimeException(error);
+            }
+
+            boolean result = CommonUtil.waitForSignal(() -> !isProcessActive(process), 180000, 4000);
+            if(!result) {
+                throw new RuntimeException(process.getName() + " 进程在" + this.hostname + "停止时超时，请移步环境中检查日志。");
             }
         } catch (Exception e) {
             String error = StrUtil.format("{}主机停止{}进程时Rpc服务异常: {}", this.getName(), process.getName(), e.getMessage());
