@@ -2,6 +2,7 @@ package cn.gsq.sdp.core;
 
 import cn.gsq.sdp.*;
 import cn.gsq.sdp.core.annotation.Function;
+import cn.gsq.sdp.core.utils.CommonUtil;
 import cn.hutool.core.collection.CollUtil;
 import cn.hutool.core.net.NetUtil;
 import cn.hutool.core.thread.ThreadUtil;
@@ -229,6 +230,10 @@ public abstract class AbstractHost extends AbstractExecutor {
                 log.error("主机{}中{}进程启动脚本执行错误: {}", this.hostname, process.getName(), respond.getContent());
                 throw new RuntimeException("主机" + this.hostname + "中" + process.getName() + "进程启动脚本执行错误:" + respond.getContent());
             }
+            boolean result = CommonUtil.waitForSignal(() -> isProcessActive(sdpManager.getProcessByName(processname)), 180000, 4000);
+            if(!result) {
+                throw new RuntimeException(processname + " 进程在" + this.hostname + "启动时超时，请移步环境中检查日志。");
+            }
         } catch (Exception e) {
             throw new RuntimeException(e);
         } finally {
@@ -256,6 +261,11 @@ public abstract class AbstractHost extends AbstractExecutor {
             if(!respond.isSuccess()) {
                 log.error("主机{}中{}进程停止脚本执行错误: {}", this.hostname, process.getName(), respond.getContent());
                 throw new RuntimeException("主机" + this.hostname + "中" + process.getName() + "进程停止脚本执行错误:" + respond.getContent());
+            }
+
+            boolean result = CommonUtil.waitForSignal(() -> !isProcessActive(sdpManager.getProcessByName(processname)), 180000, 4000);
+            if(!result) {
+                throw new RuntimeException(processname + " 进程在" + this.hostname + "停止时超时，请移步环境中检查日志。");
             }
         } catch (Exception e) {
             throw new RuntimeException(e);
@@ -286,6 +296,10 @@ public abstract class AbstractHost extends AbstractExecutor {
                 log.error("主机{}中{}进程停止脚本执行错误: {}", this.hostname, process.getName(), stopRespond.getContent());
                 throw new RuntimeException("主机" + this.hostname + "中" + process.getName() + "进程停止脚本执行错误:" + stopRespond.getContent());
             }
+            boolean result = CommonUtil.waitForSignal(() -> isProcessActive(sdpManager.getProcessByName(processname)), 180000, 4000);
+            if(!result) {
+                throw new RuntimeException(processname + " 进程在" + this.hostname + "启动时超时，请移步环境中检查日志。");
+            }
 
             ThreadUtil.safeSleep(3000);
 
@@ -295,6 +309,11 @@ public abstract class AbstractHost extends AbstractExecutor {
             if(!startRespond.isSuccess()) {
                 log.error("主机{}中{}进程启动脚本执行错误: {}", this.hostname, process.getName(), startRespond.getContent());
                 throw new RuntimeException("主机" + this.hostname + "中" + process.getName() + "进程启动脚本执行错误:" + startRespond.getContent());
+            }
+
+            boolean stopResult = CommonUtil.waitForSignal(() -> !isProcessActive(sdpManager.getProcessByName(processname)), 180000, 4000);
+            if(!stopResult) {
+                throw new RuntimeException(processname + " 进程在" + this.hostname + "停止时超时，请移步环境中检查日志。");
             }
         } catch (RuntimeException e) {
             throw new RuntimeException("主机" + this.hostname + "中" + processname + "进程重启错误: "+e);
