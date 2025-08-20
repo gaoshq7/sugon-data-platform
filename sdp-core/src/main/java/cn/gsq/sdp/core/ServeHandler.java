@@ -123,7 +123,7 @@ public enum ServeHandler {
      * @note : An art cell !
      **/
     boolean isInstalled(AbstractServe serve) {
-        if(Objects.equals(serve.getExecutorStatus(), AppStatus.INSTALLING.getName())|| Objects.equals(serve.getExecutorStatus(), AppStatus.UNINSTALLING.getName()))
+        if(Objects.equals(serve.getStatus(), AppStatus.INSTALLING)|| Objects.equals(serve.getStatus(), AppStatus.UNINSTALLING))
             return true;
         if(serve.isLocked()) {
             return true;   // 服务被锁定视为临界状态，视为已安装

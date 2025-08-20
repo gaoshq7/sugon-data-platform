@@ -30,6 +30,7 @@ import java.util.stream.Collectors;
 @Slf4j
 public abstract class AbstractExecutor extends AbstractSdpComponent implements Action {
 
+    @Getter
     private AppStatus status = AppStatus.CHECK_AVAILABLE;// app状态
 
     // 缓存 functionID -> Method
