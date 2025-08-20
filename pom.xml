@@ -13,7 +13,7 @@
     <packaging>pom</packaging>
 
     <artifactId>sdp-parent</artifactId>
-    <version>1.0.0-Gamma</version>
+    <version>1.1.0-Alpha</version>
     <name>sdp-parent</name>
 
     <modules>
