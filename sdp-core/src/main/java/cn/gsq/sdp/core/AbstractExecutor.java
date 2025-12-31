@@ -180,5 +180,9 @@ public abstract class AbstractExecutor extends AbstractSdpComponent implements A
         }
     }
 
+    /**
+     * @Description : 当主机加入集群时，执行此方法。
+     **/
+    protected void environment(String hostname) {}
 
 }

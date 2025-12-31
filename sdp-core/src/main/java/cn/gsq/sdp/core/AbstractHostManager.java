@@ -1,11 +1,12 @@
 package cn.gsq.sdp.core;
 
 import cn.gsq.common.config.GalaxySpringUtil;
+import cn.gsq.graph.dag.Vertex;
 import cn.gsq.sdp.HostInfo;
+import cn.gsq.sdp.core.utils.DagUtil;
 import cn.hutool.core.collection.CollUtil;
 import cn.hutool.core.collection.ListUtil;
 import cn.hutool.core.map.MapUtil;
-import cn.hutool.core.util.ObjectUtil;
 import cn.hutool.core.util.StrUtil;
 import com.google.common.collect.Lists;
 import lombok.Getter;
@@ -44,7 +45,7 @@ public abstract class AbstractHostManager extends AbstractBeansAssemble implemen
     protected void initHosts() {
         Set<HostInfo> hostInfos = this.hostDriver.loadHosts();
         if(CollUtil.isNotEmpty(hostInfos))
-            hostInfos.forEach(this::registerHost);
+            hostInfos.forEach(this::hostRegister);
     }
 
     /**
@@ -52,7 +53,7 @@ public abstract class AbstractHostManager extends AbstractBeansAssemble implemen
      **/
     @Override
     public void addHosts(HostInfo ... hostInfos) {
-        registerHost(hostInfos);
+        Arrays.stream(hostInfos).forEach(this::hostEnvInit);
     }
 
     /**
@@ -144,15 +145,38 @@ public abstract class AbstractHostManager extends AbstractBeansAssemble implemen
     }
 
     /**
+     * @Description : 新主机加入时，执行新实例的初始化函数。
+     **/
+    private void hostEnvInit(HostInfo hostInfos) {
+        String hostname = hostInfos.getHostname();
+        if (this.isHostExist(hostname)) {
+            throw new RuntimeException(hostname + "主机已经存在，在删除之前不可重复添加!");
+        }
+        AbstractHost host = getHostByName(hostname);
+        host.environment(hostname); // 主机初始化
+        Queue<Vertex<AbstractServe>> serves = DagUtil.getDagResult(this.sdpManager.getServes());
+        for (Vertex<AbstractServe> vertex : serves) {
+            AbstractServe serve = vertex.getTask();
+            if(serve.isInstalled()) {
+                serve.environment(hostname);    // 服务初始化
+                for(Vertex<AbstractProcess<AbstractHost>> vertex_ : DagUtil.getDagResult(serve.getProcesses())) {
+                    AbstractProcess<AbstractHost> process = vertex_.getTask();
+                    process.environment(hostname);  // 进程初始化
+                }
+            }
+        }
+        hostRegister(hostInfos);    // 内存中注册主机
+    }
+
+    /**
      * @Description : 在bean容器中注册主机
      * @note : ⚠️ manager内部使用 自定义Host实现必须有一个hostname参数的构造器 !
      **/
-    private void registerHost(HostInfo ... hostInfos) {
+    private void hostRegister(HostInfo ... hostInfos) {
         // 内存中注册主机
         Arrays.stream(hostInfos).forEach(
                 hostInfo -> {
-                    Object host = GalaxySpringUtil.getBean(hostInfo.getHostname());
-                    if(ObjectUtil.isNull(host)) {
+                    if(!this.isHostExist(hostInfo.getHostname())) {
                         GalaxySpringUtil.registerBean(
                                 hostInfo.getHostname(),
                                 this.hostClass,
@@ -160,10 +184,17 @@ public abstract class AbstractHostManager extends AbstractBeansAssemble implemen
                                 hostInfo.getGroups()
                         );
                     } else {
-                        log.warn("{}主机已经存在，在删除之前不可重复添加!", hostInfo.getHostname());
+                        throw new RuntimeException(hostInfo.getHostname() + "主机已经存在，在删除之前不可重复注册!");
                     }
                 }
         );
+    }
+
+    /**
+     * @Description : 主机是否存在
+     **/
+    private boolean isHostExist(String hostname) {
+        return CollUtil.isNotEmpty(this.hosts) && CollUtil.findOne(this.hosts, host -> host.getName().equals(hostname)) != null;
     }
 
     /**
