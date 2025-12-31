@@ -148,45 +148,42 @@ public abstract class AbstractHostManager extends AbstractBeansAssemble implemen
      * @Description : 新主机加入时，执行新实例的初始化函数。
      **/
     private void hostEnvInit(HostInfo hostInfos) {
+        hostRegister(hostInfos);    // 内存中注册主机
         String hostname = hostInfos.getHostname();
-        if (this.isHostExist(hostname)) {
-            throw new RuntimeException(hostname + "主机已经存在，在删除之前不可重复添加!");
-        }
-        AbstractHost host = getHostByName(hostname);
-        host.environment(hostname); // 主机初始化
-        Queue<Vertex<AbstractServe>> serves = DagUtil.getDagResult(this.sdpManager.getServes());
-        for (Vertex<AbstractServe> vertex : serves) {
-            AbstractServe serve = vertex.getTask();
-            if(serve.isInstalled()) {
-                serve.environment(hostname);    // 服务初始化
-                for(Vertex<AbstractProcess<AbstractHost>> vertex_ : DagUtil.getDagResult(serve.getProcesses())) {
-                    AbstractProcess<AbstractHost> process = vertex_.getTask();
-                    process.environment(hostname);  // 进程初始化
+        try {
+            AbstractHost host = getHostByName(hostname);
+            host.environment(hostname); // 主机初始化
+            Queue<Vertex<AbstractServe>> serves = DagUtil.getDagResult(this.sdpManager.getServes());
+            for (Vertex<AbstractServe> vertex : serves) {
+                AbstractServe serve = vertex.getTask();
+                if(serve.isInstalled()) {
+                    serve.environment(hostname);    // 服务初始化
+                    for(Vertex<AbstractProcess<AbstractHost>> vertex_ : DagUtil.getDagResult(serve.getProcesses())) {
+                        AbstractProcess<AbstractHost> process = vertex_.getTask();
+                        process.environment(hostname);  // 进程初始化
+                    }
                 }
             }
+        } catch (Exception e) {
+            this.removeHosts(hostname);
+            log.error("{}主机初始化异常!", hostname, e);
+            throw new RuntimeException(e);
         }
-        hostRegister(hostInfos);    // 内存中注册主机
     }
 
     /**
      * @Description : 在bean容器中注册主机
      * @note : ⚠️ manager内部使用 自定义Host实现必须有一个hostname参数的构造器 !
      **/
-    private void hostRegister(HostInfo ... hostInfos) {
+    private void hostRegister(HostInfo hostInfo) {
         // 内存中注册主机
-        Arrays.stream(hostInfos).forEach(
-                hostInfo -> {
-                    if(!this.isHostExist(hostInfo.getHostname())) {
-                        GalaxySpringUtil.registerBean(
-                                hostInfo.getHostname(),
-                                this.hostClass,
-                                hostInfo.getHostname(),
-                                hostInfo.getGroups()
-                        );
-                    } else {
-                        throw new RuntimeException(hostInfo.getHostname() + "主机已经存在，在删除之前不可重复注册!");
-                    }
-                }
+        if(this.isHostExist(hostInfo.getHostname()))
+            throw new RuntimeException(hostInfo.getHostname() + "主机已经存在，在删除之前不可重复注册!");
+        GalaxySpringUtil.registerBean(
+                hostInfo.getHostname(),
+                this.hostClass,
+                hostInfo.getHostname(),
+                hostInfo.getGroups()
         );
     }
 
