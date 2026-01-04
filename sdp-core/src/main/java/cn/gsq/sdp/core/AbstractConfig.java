@@ -175,8 +175,15 @@ public abstract class AbstractConfig extends AbstractSdpComponent implements Con
                         if(ObjectUtil.isNotEmpty(collect)){
                             item=collect.get(0) ;
                         }
-                        item = ObjectUtil.isEmpty(item) ? new ConfigItem().setKey(k).setValue(v).setIsInDictionary(false) : item;
+                        if(ObjectUtil.isEmpty(item)){
+                            item =new ConfigItem().setKey(k).setValue(v).setIsInDictionary(false);
+                        }else{
+                            item.setValue(v);
+                        }
                         branch.items.add(item);
+                    }else{//配置文件不存在字典，则添加
+                        ConfigItem configItem = new ConfigItem().setKey(k).setValue(v).setIsInDictionary(false);
+                        branch.items.add(configItem);
                     }
                 }
             });
