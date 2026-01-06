@@ -28,10 +28,6 @@ import java.util.stream.Collectors;
 @Slf4j
 public abstract class AbstractHostManager extends AbstractBeansAssemble implements HostManager  {
 
-    @Lazy
-    @Autowired(required = false)
-    private List<AbstractHost> hosts;
-
     private Class<? extends AbstractHost> hostClass;
 
     @Getter
@@ -46,6 +42,13 @@ public abstract class AbstractHostManager extends AbstractBeansAssemble implemen
         Set<HostInfo> hostInfos = this.hostDriver.loadHosts();
         if(CollUtil.isNotEmpty(hostInfos))
             hostInfos.forEach(this::hostRegister);
+    }
+    /**
+     * @Description : 获取所有主机
+     **/
+    private List<AbstractHost> hosts() {
+        List<AbstractHost> hosts = GalaxySpringUtil.getBeans(AbstractHost.class);
+        return hosts == null ? Lists.newArrayList() : hosts;
     }
 
     /**
@@ -120,7 +123,7 @@ public abstract class AbstractHostManager extends AbstractBeansAssemble implemen
     @Override
     public List<AbstractHost> getHosts() {
         List<AbstractHost> hosts = Lists.newArrayList();
-        if(!CollUtil.isEmpty(this.hosts)) {
+        if(!CollUtil.isEmpty(this.hosts())) {
             hosts = GalaxySpringUtil.getBeans(AbstractHost.class)
                     .stream()
                     .sorted(Comparator.comparing(AbstractHost::getName))
@@ -134,14 +137,14 @@ public abstract class AbstractHostManager extends AbstractBeansAssemble implemen
      **/
     @Override
     public AbstractHost getHostByName(String name) {
-        return CollUtil.findOne(hosts, host -> host.getName().equals(name));
+        return CollUtil.findOne(this.hosts(), host -> host.getName().equals(name));
     }
 
     /**
      * @Description : 根据主机名获取期望的类型的主机
      **/
     public <T> T getExpectHostByName(String name) {
-        return (T) CollUtil.findOne(hosts, host -> host.getName().equals(name));
+        return (T) CollUtil.findOne(this.hosts(), host -> host.getName().equals(name));
     }
 
     /**
@@ -191,7 +194,7 @@ public abstract class AbstractHostManager extends AbstractBeansAssemble implemen
      * @Description : 主机是否存在
      **/
     private boolean isHostExist(String hostname) {
-        return CollUtil.isNotEmpty(this.hosts) && CollUtil.findOne(this.hosts, host -> host.getName().equals(hostname)) != null;
+        return CollUtil.isNotEmpty(this.hosts()) && CollUtil.findOne(this.hosts(), host -> host.getName().equals(hostname)) != null;
     }
 
     /**
