@@ -646,6 +646,7 @@ public abstract class AbstractConfig extends AbstractSdpComponent implements Con
                         item.setIsMust(false);
                         item.setIsHidden(false);
                         item.setIsReadOnly(false);
+                        item.setIsInDictionary(false);
                     }
                     item.setKey(k).setValue(v);
 
