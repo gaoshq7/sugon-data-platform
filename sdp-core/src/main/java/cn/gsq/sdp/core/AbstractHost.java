@@ -60,7 +60,7 @@ public abstract class AbstractHost extends AbstractExecutor {
     protected void environment(String hostname) {
         for (AbstractServe serve : this.sdpManager.getServes()) {
             // 节点初始化时，如果服务的all为true且服务已安装时，下载安装包
-            if (serve.isAllMust() && !serve.isInstalled()) {
+            if (serve.isAllMust() && serve.isInstalled()) {
                 this.downloadPackage(this.sdpManager.getVersion(), serve.getPkg());
                 for (AbstractConfig config : serve.getAllConfigs()) {
                     config.addBranchHostsByDefault(hostname);
