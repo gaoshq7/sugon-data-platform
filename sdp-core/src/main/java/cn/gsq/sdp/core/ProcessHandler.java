@@ -117,12 +117,7 @@ public enum ProcessHandler {
             public <T extends AbstractHost> boolean opinion(AbstractHost host, AbstractProcess<T> process) {
                 boolean available;
                 try {
-                    if(!host.isHostActive()) {
-                        // 代理下线
-                        available = false;
-                    } else {
-                        available = host.isProcessActive(process);
-                    }
+                    available = host.isProcessActive(process);
                 } catch (Exception e) {
                     available = false;
                     log.error("获取{}主机的{}进程状态错误: {}", host.getName(), process.getName(), e);
