@@ -56,6 +56,27 @@ public abstract class AbstractHost extends AbstractExecutor {
         }
     }
 
+    @Override
+    protected void environment(String hostname) {
+        for (AbstractServe serve : this.sdpManager.getServes()) {
+            // 节点初始化时，如果服务的all为true且服务已安装时，下载安装包
+            if (serve.isAllMust() && serve.isInstalled()) {
+                this.downloadPackage(this.sdpManager.getVersion(), serve.getPkg());
+                for (AbstractConfig config : serve.getAllConfigs()) {
+                    config.addBranchHostsByDefault(hostname);
+                }
+            }
+        }
+        initHost();
+    }
+
+    /**
+     * @Description : 初始化主机实现类执行的操作
+     **/
+    protected void initHost() {
+
+    }
+
     /**
      * 根据进程名称获取应用程序状态
      *
