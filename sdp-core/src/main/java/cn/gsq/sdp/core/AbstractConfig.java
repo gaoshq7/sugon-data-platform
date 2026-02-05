@@ -602,10 +602,10 @@ public abstract class AbstractConfig extends AbstractSdpComponent implements Con
             String DontHasDictionaryPath = classpath + ".csv";
 
             if(FileUtil.isResourceExist(hasDictionaryPath)){
-                this.items = CSVConverter.convertCSV(hasDictionaryPath).stream().filter(ConfigItem::getIsMust).collect(Collectors.toList());
+                this.items = CSVConverter.convertCSV(hasDictionaryPath).stream().filter(ConfigItem::getIsMust).filter(item->!item.getIsSysConfig()).collect(Collectors.toList());
             }
             if(FileUtil.isResourceExist(DontHasDictionaryPath)){
-                this.items = CSVConverter.convertCSV(DontHasDictionaryPath).stream().filter(ConfigItem::getIsMust).collect(Collectors.toList());
+                this.items = CSVConverter.convertCSV(DontHasDictionaryPath).stream().filter(ConfigItem::getIsMust).filter(item->!item.getIsSysConfig()).collect(Collectors.toList());
             }
 
         }
@@ -618,44 +618,129 @@ public abstract class AbstractConfig extends AbstractSdpComponent implements Con
             ConfigBranch branch = getSelfMetadata();
             // 先清空，再全量添加
             this.items.clear();
+
             items.forEach((k, v) -> {
                 ConfigItem item = new ConfigItem();
-                if(CollUtil.isNotEmpty(configDictionary)){
-                    List<ConfigItem> collect = configDictionary.stream().filter(s -> s.getKey().equals(k)).collect(Collectors.toList());
-                    if(ObjectUtil.isNotEmpty(collect)){
-                        ConfigItem tmp=collect.get(0) ;
-                        BeanUtils.copyProperties(tmp,item);
-                    }
-                    else {
-                        item.setIsInDictionary(false);//用来标记用户添加的字典中不存在的配置
+
+                if (CollUtil.isNotEmpty(configDictionary)) {
+
+                    ConfigItem tmp = findFromList(configDictionary, k);
+
+                    if (ObjectUtil.isNotEmpty(tmp)) {
+                        // 用字典项作为模板
+                        BeanUtils.copyProperties(tmp, item);
+                    } else {
+                        // 用户自定义
+                        item.setIsInDictionary(false);
                         item.setCanDelete(true);
                         item.setIsMust(false);
                         item.setIsHidden(false);
                         item.setIsReadOnly(false);
                     }
-                    item.setKey(k).setValue(v);
-                }
-                else {//没有字典
-                    List<ConfigItem> collect = nonConfigDictionary.stream().filter(s -> s.getKey().equals(k)).collect(Collectors.toList());
-                    if(ObjectUtil.isNotEmpty(collect)){
-                        ConfigItem tmp=collect.get(0) ;
-                        BeanUtils.copyProperties(tmp,item);
-                    }
-                    else {//用户自己加的
+
+                } else { // 没有字典
+                    ConfigItem tmp = findFromList(nonConfigDictionary, k);
+
+                    if (ObjectUtil.isNotEmpty(tmp)) {
+                        BeanUtils.copyProperties(tmp, item);
+                    } else {
                         item.setCanDelete(true);
                         item.setIsMust(false);
                         item.setIsHidden(false);
                         item.setIsReadOnly(false);
                         item.setIsInDictionary(false);
                     }
-                    item.setKey(k).setValue(v);
-
                 }
-                this.items.add(item);
 
+                //最关键：无论是否模糊匹配，最终 key/value 用实际传入的
+                item.setKey(k);
+                item.setValue(v);
+
+                this.items.add(item);
             });
-            this.driver.conform(branch, this.getItems());   // 可能抛出错误，终止流程。
+
+            this.driver.conform(branch, this.getItems());
         }
+
+
+        //按段匹配* 只匹配一段
+        private boolean matchKey(String pattern, String key) {
+            if (pattern == null || key == null) {
+                return false;
+            }
+
+            String[] pArr = pattern.split("\\.");
+            String[] kArr = key.split("\\.");
+
+            if (pArr.length != kArr.length) {
+                return false;
+            }
+
+            for (int i = 0; i < pArr.length; i++) {
+                String p = pArr[i];
+                String k = kArr[i];
+
+                if ("*".equals(p)) {
+                    continue;
+                }
+
+                if (!p.equals(k)) {
+                    return false;
+                }
+            }
+
+            return true;
+        }
+
+
+        //在 List 里查找（精确优先，其次模糊）
+        private ConfigItem findFromList(List<ConfigItem> list, String key) {
+            if (CollUtil.isEmpty(list)) {
+                return null;
+            }
+
+            // 1. 精确匹配
+            for (ConfigItem item : list) {
+                if (key.equals(item.getKey())) {
+                    return item;
+                }
+            }
+
+            // 2. 模糊匹配（选最具体）
+            ConfigItem bestMatch = null;
+            int bestScore = -1;
+
+            for (ConfigItem item : list) {
+                String pattern = item.getKey();
+                if (!pattern.contains("*")) {
+                    continue;
+                }
+
+                if (matchKey(pattern, key)) {
+                    int score = calcSpecificScore(pattern);
+                    if (score > bestScore) {
+                        bestScore = score;
+                        bestMatch = item;
+                    }
+                }
+            }
+
+            return bestMatch;
+        }
+
+
+        private int calcSpecificScore(String pattern) {
+            int score = 0;
+            for (String p : pattern.split("\\.")) {
+                if (!"*".equals(p)) {
+                    score++;
+                }
+            }
+            return score;
+        }
+
+
+
 
         /**
          * @Description : 获取实体配置
