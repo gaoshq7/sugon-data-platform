@@ -137,7 +137,7 @@ public abstract class AbstractExecutor extends AbstractSdpComponent implements A
             if(ObjectUtil.isNotNull(task))
                 task.run();// 发送通知
             // 你可以在这里统一日志/错误处理
-            throw new RuntimeException("通过 proxyFunction 执行失败: " + e.getMessage(), e);
+            throw new RuntimeException("通过 proxyFunction 执行失败: " + e.getCause().toString(), e.getCause());
         }
     }
 
