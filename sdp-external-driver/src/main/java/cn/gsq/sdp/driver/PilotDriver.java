@@ -10,6 +10,7 @@ import cn.hutool.core.thread.ThreadUtil;
  * @date : 2025-03-05 10:35
  * @note : It's not technology, it's art !
  **/
+@Deprecated
 public interface PilotDriver {
 
     /**
@@ -19,6 +20,7 @@ public interface PilotDriver {
      * @Author : syu
      * @Date : 2024/3/29
      */
+    @Deprecated
     void startPilot(String hostname);
 
 
@@ -29,6 +31,7 @@ public interface PilotDriver {
      * @Author : syu
      * @Date : 2024/3/29
      */
+    @Deprecated
     void stopPilot(String hostname);
 
 
@@ -39,6 +42,7 @@ public interface PilotDriver {
      * @Author : syu
      * @Date : 2024/3/29
      */
+    @Deprecated
     default void restart(String hostname) {
         startPilot(hostname);
         ThreadUtil.safeSleep(1000);
@@ -52,6 +56,7 @@ public interface PilotDriver {
      * @Author : syu
      * @Date : 2024/3/29
      */
+    @Deprecated
     boolean isActive(String hostname);
 
     /**
@@ -62,6 +67,7 @@ public interface PilotDriver {
      * @Date : 2024/5/23
      * @note : ⚠️ 有错误要抛出来 !
      **/
+    @Deprecated
     void startAgent(String hostname);
 
     /**
@@ -72,6 +78,7 @@ public interface PilotDriver {
      * @Date : 2024/5/23
      * @note : ⚠️ 有错误要抛出来 !
      **/
+    @Deprecated
     void stopAgent(String hostname);
 
     /**
@@ -82,6 +89,7 @@ public interface PilotDriver {
      * @Date : 2024/5/23
      * @note : ⚠️ 有错误要抛出来 !
      **/
+    @Deprecated
     void restartAgent(String hostname);
 
 }

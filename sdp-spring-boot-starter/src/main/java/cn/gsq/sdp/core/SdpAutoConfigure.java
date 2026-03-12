@@ -292,4 +292,21 @@ public class SdpAutoConfigure {
         };
     }
 
+    @Bean
+    @ConditionalOnMissingBean(WormholeDriver.class)
+    public WormholeDriver getWormholeDriver() {
+        log.warn("未定义安装包下载服务驱动：WormholeDriver，将采用默认策略。");
+        return new WormholeDriver() {
+            @Override
+            public void id(String id) {
+
+            }
+
+            @Override
+            public void handle(String line) {
+
+            }
+        };
+    }
+
 }
