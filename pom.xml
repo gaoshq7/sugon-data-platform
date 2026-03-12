@@ -45,6 +45,12 @@
 
             <dependency>
                 <groupId>io.github.gaoshq7</groupId>
+                <artifactId>w-client</artifactId>
+                <version>1.0.0-release</version>
+            </dependency>
+
+            <dependency>
+                <groupId>io.github.gaoshq7</groupId>
                 <artifactId>sdp-common</artifactId>
                 <version>${version}</version>
             </dependency>

@@ -43,6 +43,11 @@
             <artifactId>opencsv</artifactId>
         </dependency>
 
+        <dependency>
+            <groupId>io.github.gaoshq7</groupId>
+            <artifactId>w-client</artifactId>
+        </dependency>
+
     </dependencies>
 
 </project>

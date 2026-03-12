@@ -1,22 +1,26 @@
 package cn.gsq.sdp.core;
 
+import cn.gsq.common.config.GalaxySpringUtil;
 import cn.gsq.sdp.*;
 import cn.gsq.sdp.core.annotation.Function;
 import cn.gsq.sdp.core.utils.CommonUtil;
+import cn.gsq.sdp.driver.WormholeDriver;
 import cn.hutool.core.collection.CollUtil;
+import cn.hutool.core.map.MapUtil;
 import cn.hutool.core.net.NetUtil;
 import cn.hutool.core.thread.ThreadUtil;
 import cn.hutool.core.util.ObjectUtil;
 import cn.hutool.core.util.StrUtil;
+import io.github.gaoshq7.handler.SimpleMsgHandler;
+import io.github.gaoshq7.wormhole.*;
+import io.github.gaoshq7.wormhole.protocol.AuditObserver;
+import io.github.gaoshq7.wormhole.protocol.ScriptExecutor;
 import lombok.Getter;
 import lombok.extern.slf4j.Slf4j;
 
 import java.io.FileNotFoundException;
 import java.net.InetSocketAddress;
-import java.util.List;
-import java.util.Map;
-import java.util.Objects;
-import java.util.Set;
+import java.util.*;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.stream.Collectors;
 
@@ -40,6 +44,10 @@ public abstract class AbstractHost extends AbstractExecutor {
 
     protected Map<String, AppStatus> processStatus = new ConcurrentHashMap<>();//主机上面的进程及其状态信息，只维护中间态
 
+    private final ScriptExecutor executor;
+
+    private final AuditObserver observer;
+
     /**
      * @Description : ioc注册构造函数
      **/
@@ -54,6 +62,11 @@ public abstract class AbstractHost extends AbstractExecutor {
                 }
             }
         }
+        Connection connection = new Connection(this.hostname, 10086, "admin", "admin1234@sugon");
+        WormholeFactory<ScriptExecutor> fs = Wormhole.getFactory("script");
+        WormholeFactory<AuditObserver> fa = Wormhole.getFactory("audit");
+        this.executor = fs.create(connection);
+        this.observer = fa.create(connection);
     }
 
     @Override
@@ -628,6 +641,70 @@ public abstract class AbstractHost extends AbstractExecutor {
             log.error("{}上获取日志失败",hostname);
         }
         return respond.getContent();
+    }
+
+    /**
+     * @Description : 提交wormhole执行脚本
+     */
+    public void actuator(String name, Map<String, Object> params) {
+        StringBuilder builder = StrUtil.builder();
+        CommandHandler commandHandler = new CommandHandler() {
+
+            final WormholeDriver handler = GalaxySpringUtil.getBean(WormholeDriver.class);
+
+            @Override
+            public void id(String id) {
+                handler.id(id);
+            }
+
+            @Override
+            public void line(String line) {
+                handler.handle(line);
+                builder.append(line);
+            }
+        };
+        ExecutorContext context = new ExecutorContext(
+                name,
+                MapUtil.isEmpty(params) ? new HashMap<>() : params, commandHandler,
+                new SimpleMsgHandler()
+        );
+        Integer exitCode = this.executor.execute(context);   // 阻塞获取结果，当脚本不存在时抛出运行时异常
+        if (exitCode != 0) {
+            log.error("'{}'脚本执行失败", name);
+            // 去掉最后一个换行符，获取结果
+            if (builder.length() > 0) {
+                builder.setLength(builder.length() - System.lineSeparator().length());
+            }
+            throw new RuntimeException(builder.toString());
+        }
+    }
+
+    /**
+     * @Description : 获取wormhole执行结果审计记录
+     */
+    public AuditMsg audit(String id) {
+        AuditMsg auditMsg = null;
+        try {
+            int id_ = Integer.parseInt(id);
+            auditMsg = this.observer.audit(id_);
+        } catch (Exception e) {
+            log.warn("id参数'{}'错误", id);
+        }
+        return auditMsg;
+    }
+
+    /**
+     * @Description : 初始化（服务、进程）
+     */
+    public void initialization(AbstractApp app, Map<String, Object> params) {
+        actuator(app.getName() + "初始化", params);
+    }
+
+    /**
+     * @Description : 卸载（服务、进程）
+     */
+    public void uninstall(AbstractApp app, Map<String, Object> params) {
+        actuator(app.getName() + "卸载", params);
     }
 
 }
