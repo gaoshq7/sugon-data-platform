@@ -550,17 +550,7 @@ public abstract class AbstractHost extends AbstractExecutor {
      **/
     public String listDisk(String op){
         try {
-            RpcRespond<String> respond = this.rpcDriver.execute(
-                    RpcRequest.createRequest(
-                            this.hostname,
-                            "./scripts",
-                            "./disklist.py " + op
-                    )
-            );
-            if (!respond.isSuccess()) {
-                log.error("{}上磁盘获取失败", this.hostname);
-            }
-            return respond.getContent();
+            return actuator("展示磁盘信息", MapUtil.of("是否挂载", op));
         } catch (RuntimeException e) {
             log.error("{}上磁盘获取异常:{}", this.hostname, e.getMessage());
             return null;
@@ -574,22 +564,15 @@ public abstract class AbstractHost extends AbstractExecutor {
     public String mountDisk(MountParams.DiskInfo diskInfo) {
         String driver = diskInfo.getDriver();
         String path = diskInfo.getPath();
-        RpcRespond<String> respond;
-        if (!Objects.equals(driver, "") && !Objects.equals(path, "")) {
-            respond = this.rpcDriver.execute(
-                    RpcRequest.createRequest(
-                            this.hostname,
-                            "./scripts",
-                            "./diskmount.sh " + driver + " " + path
-                    )
-            );
-            if (!respond.isSuccess()) {
-                throw new RuntimeException(hostname + "上磁盘" + driver + "挂载到目录" + path + "失败:" + respond.getContent());
-            }
-        } else {
-            throw new RuntimeException("磁盘挂载参数错误!");
+        HashMap<String, Object> args = new HashMap<>();
+        args.put("磁盘路径", driver);
+        args.put("挂载目录", path);
+        try {
+            actuator("磁盘挂载", args);
+            return driver + "挂载到" + path + "成功";
+        }catch (Exception e) {
+            return "磁盘挂载异常:" + e.getMessage();
         }
-        return respond.getContent();
     }
 
     /**
@@ -646,7 +629,7 @@ public abstract class AbstractHost extends AbstractExecutor {
     /**
      * @Description : 提交wormhole执行脚本
      */
-    public void actuator(String name, Map<String, Object> params) {
+    public String actuator(String name, Map<String, Object> params) {
         StringBuilder builder = StrUtil.builder();
         CommandHandler commandHandler = new CommandHandler() {
 
@@ -677,6 +660,7 @@ public abstract class AbstractHost extends AbstractExecutor {
             }
             throw new RuntimeException(builder.toString());
         }
+        return builder.toString();
     }
 
     /**
