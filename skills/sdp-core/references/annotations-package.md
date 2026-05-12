@@ -35,10 +35,12 @@ public @interface Sdp {
 
 ```java
 @Sdp(version = "v5.3.1")
-package io.github.sdp.v531;
+package com.sugon.gsq.libraries.v531;
 
 import cn.gsq.sdp.core.annotation.Sdp;
 ```
+
+> 包路径可任意（如 `com.sugon.gsq.libraries.v531`、`io.github.sdp.v531`），**关键是末段必须匹配版本号**。
 
 ### 1.3 命名约定（强约束）
 
@@ -59,10 +61,11 @@ import cn.gsq.sdp.core.annotation.Sdp;
 同一根目录下可有多个版本包，每个一份 `package-info.java`：
 
 ```
-io.github.sdp/
+com.sugon.gsq.libraries/
+├── v530/package-info.java   // @Sdp(version = "v5.3.0")
 ├── v531/package-info.java   // @Sdp(version = "v5.3.1")
-├── v540/package-info.java   // @Sdp(version = "v5.4.0")
-└── v550/package-info.java   // @Sdp(version = "v5.5.0")
+├── v532/package-info.java   // @Sdp(version = "v5.3.2")
+└── v541/package-info.java   // @Sdp(version = "v5.4.1")
 ```
 
 Web 端通过 `sdpEnvManager.getVersions()` 列出全部，`loadSdp(version)` 切换激活。
@@ -80,19 +83,36 @@ public @interface Host { /* 无字段 */ }
 
 ### 2.2 用法
 
-每个版本包内**有且只能有一个** `@Host` 注解的类，继承 `AbstractHost`：
+每个版本包内**有且只能有一个** `@Host` 注解的类，继承 `AbstractHost`。**强约定写法是 `@Host()`（带空括号）**：
 
 ```java
-package io.github.sdp.v531;
+package com.sugon.gsq.libraries.v531;
 
-@Host
+@Host()
+@Slf4j
 public class SdpHost531Impl extends AbstractHost {
 
     public SdpHost531Impl(String hostname, List<String> groups) {
         super(hostname, groups);
     }
 
-    // 按需覆盖父类钩子（可选，几乎不需要）
+    @Override
+    public void initHost() {
+        // 主机加入集群时的版本级初始化（如建立 Kerberos 信任）
+        if (sdpManager.getServeByName("Kerberos").isInstalled()) {
+            String ldap = CollUtil.getFirst(
+                sdpManager.getProcessByName("Slapd").getHosts()).getName();
+            this.installKerberos(ldap);
+        }
+    }
+
+    /* —— 下面是供其它服务调用的业务方法，是真实工程里 @Host 类的主要内容 —— */
+
+    public void uninstallHMaster() { /* 远程脚本：卸载 HBase Master */ }
+    public boolean hdfsOpenRanger(String hostname) { /* 给 HDFS 启用 Ranger */ return true; }
+    public void createLDAPUser(String username, int uid) { /* ... */ }
+    public void installKerberos(String ldapHost) { /* ... */ }
+    // ……可有几十个
 }
 ```
 
@@ -100,11 +120,45 @@ public class SdpHost531Impl extends AbstractHost {
 
 1. **构造器签名必须是 `(String hostname, List<String> groups)`**——`AbstractHostManager.hostRegister()` 通过反射调用此构造器实例化，签名错误时报 `NoSuchMethodException`。
 2. **每个版本包仅一个 `@Host`**——多个会触发 `log.warn` 并由 `CollUtil.getFirst` 随机选一个。
-3. **不要在 @Host 类内自定义业务字段并通过 `@Autowired` 注入**——主机是动态注册的 Bean（一台主机一个实例），Spring 注入时机晚于 hostRegister，注入时机不可靠。要拿外部服务请用 `GalaxySpringUtil.getBean(...)` 显式取。
+3. **`@Autowired` 注入服务接口是允许的且常见**——例如把上层 Web 系统提供的 Ranger / Kerberos 客户端注入到 `@Host` 实现，让远程操作有外部依赖。Spring 在主机 Bean 注册时会完成依赖注入。
 
-### 2.4 自定义业务方法
+### 2.4 `@Host` 类的真实工程用法
 
-`AbstractHost` 已提供 `startProcess` / `stopProcess` / `actuator` / `mountDisk` 等通用操作。子类一般只需覆盖一两个钩子（如自定义 `environment()` 增加版本特定的初始化）。可加 `@Function` 方法供 Web 调用。
+`@Host` 类在真实项目里**是版本级业务方法的集合**，远不止是构造器壳子：
+
+| 用途 | 例子 |
+|---|---|
+| 覆盖 `initHost()` 钩子 | 主机首次加入时做 Kerberos 互信、LDAP 用户创建 |
+| 覆盖 `environment(hostname)` 钩子 | 比 `initHost` 更早触发，做包下载前置 |
+| 加业务方法供服务类调用 | `uninstallHMaster()` / `installKerberos(ldap)` / `hdfsOpenRanger(rangerHost)` |
+| 加 `@Function` 方法 | UI 暴露的主机级运维按钮 |
+
+**调用方式**（在 `AbstractServe` 子类中）：
+
+```java
+public class HDFS extends AbstractServe {
+    @Override
+    protected void initServe(Blueprint.Serve serve) {
+        for (AbstractHost host : sdpManager.getHostManager().getHosts()) {
+            // 取到带具体类型的 host，调用版本专用业务方法
+            SdpHost531Impl impl = this.sdpManager.getExpectHostByName(host.getName());
+            impl.createLDAPUser("hdfs", 9001);
+        }
+    }
+}
+```
+
+### 2.5 `AbstractHost` 主要可覆盖钩子
+
+| 钩子 | 触发时机 | 典型用途 |
+|---|---|---|
+| `environment(String hostname)` | 主机环境初始化最早阶段（`hostEnvInit` 中调用） | 通常无需覆盖，默认实现会下载必要安装包 |
+| `initHost()` | `environment` 末尾调用 | 主机首次加入集群时的版本特定初始化 |
+| `loadEnvResource()` | `loadEnvResource` 阶段（所有组件遍历钩子） | 加载主机本地资源 |
+| `recover()` | 主机被移除时 | 清理本机残留 |
+| `updateGroups(List<String>)` | 分组变更后 | 同步分组到本地状态 |
+
+> 钩子签名可参见 `cn.gsq.sdp.core.AbstractHost`。`initHost` 是最常见的覆盖点。
 
 ---
 
@@ -133,37 +187,44 @@ public interface HostGroup {
 }
 ```
 
-### 3.3 完整示例
+### 3.3 完整示例（galaxy-libraries 真实风格，Lombok 紧凑写法）
+
+工程偏好用 Lombok `@AllArgsConstructor` + 实例字段，比匿名内部类紧凑得多：
 
 ```java
-package io.github.sdp.v531.mode;
+package com.sugon.gsq.libraries.v531;
 
-@Mode("主从混合")
-public enum MasterSlave implements HostGroup {
+@Mode("存算分离")
+@AllArgsConstructor
+public enum SCIsolateMode implements HostGroup {
 
-    MASTER {
-        @Override public int min() { return 2; }
-        @Override public int max() { return 2; }
-        @Override public String description() { return "运行主控进程的节点"; }
-    },
+    MASTER(2, 2, "运行与使用终端交互的服务主进程"),
+    COMMON(3, -1, "运行分布式元数据服务进程"),
+    WEB(1, 1, "运行组件的页面终端服务进程"),
+    DATA(3, -1, "运行数据存储进程"),
+    TASK(3, -1, "运行数据计算进程"),
+    HTAP(3, -1, "运行 Doris 服务计算存储进程"),
+    OLAP(2, -1, "运行 Presto 服务计算进程");
 
-    DATA {
-        @Override public int min() { return 3; }
-        @Override public int max() { return -1; }
-        @Override public String description() { return "运行数据存储进程的节点"; }
-    },
+    private final int min;
+    private final int max;
+    private final String description;
 
-    WEB {
-        @Override public int min() { return 1; }
-        @Override public int max() { return 1; }
-        @Override public String description() { return "运行 Web 控制台"; }
-    };
+    @Override public int min()              { return this.min; }
+    @Override public int max()              { return this.max; }
+    @Override public String description()   { return this.description; }
 
-    // ⚠️ 不要在这里覆盖 mode() 方法
+    // ⚠️ 不要覆盖 mode()，默认实现会反射读取 @Mode("存算分离") 的值
 }
 ```
 
-### 3.4 强约束
+> 匿名内部类风格（每个枚举值各自覆盖 `min/max/description`）也合法，但工程上**强烈推荐 Lombok 风格**——一目了然且不易写漏字段。
+
+### 3.4 放置位置
+
+`@Mode` 类**可以直接放在版本根包**，与 `@Host` 类同级（如 galaxy-libraries 的 `v531/SCIsolateMode.java`）。**不强制放在 `mode/` 子包**——子包只是个人组织偏好。
+
+### 3.5 强约束
 
 1. **必须是枚举**（`isEnum()` 为 true）——否则 `SdpEnvManager` 扫描时过滤。
 2. **必须实现 `HostGroup`** 接口——同上。
@@ -175,20 +236,20 @@ public enum MasterSlave implements HostGroup {
    若你覆盖 `mode()` 返回 `"other"`，则该枚举的 group 不会被归到 `"主从混合"` 桶，整个 mode 失效。
 4. **`name()` 不要覆盖**——默认由枚举值名自动提供（如 `MASTER`），框架按此名匹配 `HostInfo.groups`。覆盖会让"主机注册了但找不到对应 group"。
 
-### 3.5 多模式共存
+### 3.6 多模式共存
 
 一个版本包内可定义多个 `@Mode` 类：
 
 ```
-io.github.sdp.v531.mode/
-├── MasterSlave.java              // @Mode("主从混合")
-├── ComputeStorage.java           // @Mode("存算分离")
+com.sugon.gsq.libraries.v531/
+├── SCIsolateMode.java            // @Mode("存算分离")
+├── MasterSlaveMode.java          // @Mode("主从混合")
 └── HtapMode.java                 // @Mode("HTAP")
 ```
 
 Web 端通过 `sdpEnvManager.getModes()` 列出全部，`setMode("主从混合")` 选定。每次 `loadSdp` 后必须重新 `setMode`。
 
-### 3.6 Group 名设计建议
+### 3.7 Group 名设计建议
 
 - 大写常量风格（与 Java 枚举一致）：`MASTER` / `DATA` / `WEB`；
 - 避免与其它 mode 的 group 名冲突（虽然按 mode 分桶，但 UI 展示时容易混淆）；
@@ -197,30 +258,48 @@ Web 端通过 `sdpEnvManager.getModes()` 列出全部，`setMode("主从混合")
 
 ---
 
-## 4. 包路径规划建议
+## 4. 包路径规划建议（galaxy-libraries 真实结构）
 
 ```
-io.<your-org>.<product>/                       ← sdp.root.classpath 指向这里
-├── v531/                                       ← 版本包 1
-│   ├── package-info.java                       (@Sdp version="v5.3.1")
-│   ├── SdpHost531Impl.java                     (@Host)
-│   ├── mode/
-│   │   ├── MasterSlave.java                    (@Mode)
-│   │   └── ComputeStorage.java                 (@Mode)
-│   ├── hdfs/
-│   ├── spark/
+com.sugon.gsq.libraries/                       ← sdp.root.classpath 指向这里
+├── v530/                                       ← 版本包
+│   ├── package-info.java                       (@Sdp version="v5.3.0")
+│   ├── SdpHost530Impl.java                     (@Host)
+│   ├── MasterSlaveMode.java                    (@Mode) —— 与 @Host 同级
+│   ├── SCIsolateMode.java                      (@Mode)
+│   ├── hdfs/                                   ← 服务包用小写
+│   │   ├── HDFS.java                           (@Serve) —— 服务类名遵循官方组件命名
+│   │   ├── config/
+│   │   │   ├── CoreSiteXml.java                (@Config)
+│   │   │   └── HdfsSiteXml.java
+│   │   └── process/
+│   │       ├── NameNode.java                   (@Process)
+│   │       ├── DataNode.java
+│   │       ├── JournalNode.java
+│   │       └── Zkfc.java
+│   ├── prestosql/
+│   │   └── PrestoSQL.java                      ← 类名 PrestoSQL，与 resources/PrestoSQL/ 对应
 │   └── ...
-├── v540/                                       ← 版本包 2
-│   ├── package-info.java                       (@Sdp version="v5.4.0")
-│   ├── SdpHost540Impl.java
-│   └── ...
-└── shared/                                     ⚠️ 不要放在这里
+├── v531/
+├── v532/
+├── v541/
+├── utils/                                      ← 跨版本共享的工具类
+│   └── HostUtil.java
+└── exception/                                  ← 跨版本共享的异常类
+    └── ScriptRunningException.java
 ```
+
+**命名约定（与 galaxy-libraries 一致）：**
+
+- **Java 子包用小写**：`v531/hdfs/`、`v531/prestosql/`；
+- **类名遵循官方组件命名**：`HDFS`（缩写全大写）/ `PrestoSQL` / `Zookeeper`，而非 `Hdfs` / `Prestosql`；
+- **resources 子目录名必须与 `@Serve` 类的简单类名完全一致**：`@Serve class HDFS` → `resources/v531/HDFS/`；
+- **跨版本共享的工具/异常类放在另一个根包**（`utils/` / `exception/`），与 `sdp.root.classpath` 指向的版本根包平级 —— 避免 `loadSdp` 切换版本时被 `removeBeanByName` 误删。
 
 **⚠️ 注意**：`SdpEnvManager#loadSdp` 在切换版本时会**删除所有以 `sdp.root.classpath` 为前缀的 Spring Bean**，所以：
 
 - 不要把"业务通用 Bean"放在 `sdp.root.classpath` 下；
-- 跨版本共享的工具类放在另一个根包（如 `io.<your-org>.shared`）；
+- 跨版本共享的工具类放在另一个根包（如 `com.sugon.gsq.libraries.utils`）；
 - 版本包之间不要互相 import（虽然语法允许，但运行期切换会让其它版本的 Bean 不存在）。
 
 ---

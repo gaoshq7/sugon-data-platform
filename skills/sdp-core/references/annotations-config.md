@@ -80,77 +80,121 @@ public class PrestoConfig extends AbstractConfig { }
 
 ## 2. CSV 字典文件
 
-### 2.1 路径约定
+### 2.1 路径约定（含 SDP 版本号目录）
+
+**关键**：`resources/` 顶层是 **SDP 版本号**（与 `@Sdp.version` 去 `.` 后一致，与 Java 包名末段相同），下一层才是服务名。
 
 **单分支**：
 
 ```
-resources/{serveClassName}/{configClassName的派生名}$.csv
+resources/{sdpVersion}/{serveClassName}/{configClassName}[$].csv
 ```
 
 **多分支**：
 
 ```
-resources/{serveClassName}/{configClassName的派生名}/{branchName}.{suffix}$.csv
+resources/{sdpVersion}/{serveClassName}/{configClassName}/{branchName}.csv
 ```
 
-> `serveClassName` 是 `@Serve` 注解所在类的简单类名（如 `Hdfs`、`PrestoSQL`）。`configClassName的派生名` 一般是 `@Config.path` 的文件名（如 `core-site.xml`、`config.properties`），具体由框架内 CSV 加载器解析。
+> - `sdpVersion`：例如 `v531`（来自 `@Sdp(version = "v5.3.1")`）；
+> - `serveClassName`：`@Serve` 类的简单类名，**与类名严格一致**（如 `HDFS` / `PrestoSQL` / `Zookeeper`）；
+> - `configClassName`：配置文件名（与 `@Config.path` 末段一致，如 `core-site.xml`）；
+> - **单分支文件可带 `$`**，**多分支文件名一般不带 `$`**（见 §2.2）。
 
 ### 2.2 `$` 后缀的含义
 
-- 文件名带 `$`（即 `xxx$.csv`）：包含**配置字典**（每行有 origin/label/description/permission 等元数据）；
-- 文件名不带 `$`（即 `xxx.csv`）：仅含**键值对**（key / value 两列）。
+- 文件名带 `$`（即 `xxx$.csv`）：CSV 内包含**完整配置字典**（10 列固定），每项有元数据（默认值、中英文描述、权限等级、标签…）；
+- 文件名不带 `$`（即 `xxx.csv`）：**纯文本模式**——CSV 列数 < 10，按"整文件单一 ConfigItem"处理（见 §2.4 模式 B）。
 
-带 `$` 用于"用户可编辑的配置"，让 UI 知道每项的默认值、描述和合法范围；不带 `$` 用于"框架内部固定数据"。
+> 多分支配置文件 **实际项目里通常不带 `$`**（按纯文本模式处理）。需要字典的单分支配置才带 `$`。
 
-### 2.3 CSV 两种内容模式
-
-#### 模式 A：key-value 模式（结构化配置）
-
-适合 `xml` / `properties` / `cfg` 等键值对格式：
-
-```csv
-key,origin,label,description,permission
-dfs.replication,3,副本数,HDFS 文件块副本数,EDITABLE
-dfs.namenode.handler.count,100,RPC 处理线程,NameNode RPC 线程池大小,EDITABLE
-dfs.permissions.enabled,true,启用权限检查,,READONLY
-```
-
-字段说明：
-
-- `key`：配置项 key；
-- `origin`：默认值；
-- `label`：UI 显示名；
-- `description`：描述；
-- `permission`：权限标识（`EDITABLE` / `READONLY` 等，具体由接入方定义）。
-
-#### 模式 B：纯文本模式（整文件作为一项）
-
-适合脚本、日志配置等"无结构"文件：
-
-```csv
-key,origin,...
-__content__,"<整个文件内容>",...
-```
-
-框架把整个文件当作单一 ConfigItem 处理。具体 key 命名约定看接入方的 ConfigDriver 实现。
-
-### 2.4 资源路径完整示例
-
-假设有 HDFS 服务带 `core-site.xml` 和 `hdfs-site.xml` 单分支配置，以及 PrestoSQL 服务带 `config.properties` 多分支（master/worker）：
+### 2.3 完整资源路径示例（galaxy-libraries 真实结构）
 
 ```
 src/main/resources/
-├── Hdfs/                                           ← 对应 @Serve class Hdfs
-│   ├── core-site.xml$.csv                          ← 单分支 + 字典
-│   └── hdfs-site.xml$.csv
-└── PrestoSQL/                                      ← 对应 @Serve class PrestoSQL
-    └── config.properties/                          ← 多分支用目录
-        ├── master.properties$.csv                  ← master 分支
-        └── worker.properties$.csv                  ← worker 分支
+├── v531/                                           ← @Sdp(version="v5.3.1")
+│   ├── HDFS/                                       ← @Serve class HDFS
+│   │   ├── core-site.xml$.csv                      ← 单分支 + 字典（10 列）
+│   │   ├── hdfs-site.xml$.csv                      ← 单分支 + 字典
+│   │   ├── dfs.hosts.csv                           ← 单分支纯文本（无 $）
+│   │   ├── dfs.hosts.exclude.csv
+│   │   ├── hadoop-env.sh.csv                       ← 纯文本（无 $）
+│   │   └── hdfs-jaas.conf.csv
+│   ├── Zookeeper/
+│   └── ...
+├── v532/
+│   ├── HDFS/...
+│   └── PrestoSQL/                                  ← 含多分支配置
+│       ├── hive.properties.csv                     ← 单分支纯文本
+│       ├── jvm.config.csv
+│       ├── node.properties.csv
+│       └── config/                                 ← 多分支配置（@Config.path 派生）
+│           ├── master.properties.csv               ← master 分支（无 $）
+│           └── worker.properties.csv               ← worker 分支（无 $）
+└── v541/
+    └── ...
 ```
 
-> **⚠️** 实际框架的目录拼接规则细节可参考 `AbstractConfig` 中的 CSV 加载逻辑（`loadConfigItems` 调用路径），上述是常见组织方式。
+### 2.4 CSV 两种实际格式
+
+CSV 加载器（`cn.gsq.sdp.core.utils.CSVConverter`）**按列数自动判定**模式：
+
+#### 模式 A：字典模式（10 列固定）
+
+适合 `xml` / `properties` / `cfg` 等键值对格式。文件**必须正好 10 列**：
+
+```csv
+key,v_dictionary,v_default,description_en,description_ch,isMust,delimiter,labels,authority,isSysConfig
+dfs.replication,null,3,"Default block replication.","HDFS 默认副本数",TRUE,null,"存储",3,FALSE
+dfs.namenode.handler.count,null,100,"NN handler count","NameNode RPC 线程池大小",FALSE,null,"调优",3,FALSE
+hadoop.security.authorization,FALSE,TRUE,"Is service-level auth enabled?","是否启用服务级别授权",TRUE,null,"权限",2,FALSE
+```
+
+**列映射**（CSVConverter 按索引解析，**表头名仅给人看**，列顺序固定）：
+
+| 索引 | 表头惯例名 | 映射到 `ConfigItem` 字段 | 说明 |
+|---|---|---|---|
+| 0 | `key` | `key` | 配置项 key |
+| 1 | `v_dictionary` | `origin` | 字典值（可选值或原始默认） |
+| 2 | `v_default` | `value` | 实际默认值；`TRUE`/`FALSE` 会自动小写化 |
+| 3 | `description_en` | `description` | 英文描述 |
+| 4 | `description_ch` | `description_ch` | 中文描述 |
+| 5 | `isMust` | `isMust` (`Boolean`) | 是否必填 |
+| 6 | `delimiter` | `separator` | 值为数组时的分隔符 |
+| 7 | `labels` | `label` (`List<String>`) | 标签，按逗号拆成列表 |
+| 8 | `authority` | (派生 3 个 bool) | 权限等级 1-4，映射 `isHidden`/`isReadOnly`/`canDelete` |
+| 9 | `isSysConfig` | `isSysConfig` (`Boolean`) | 是否系统内部配置（隐藏给用户） |
+
+**`authority` 数字含义**：
+
+| 值 | isHidden | isReadOnly | canDelete |
+|---|---|---|---|
+| 1 | true | — | false |
+| 2 | false | true | false |
+| 3 | false | false | false |
+| 4 | false | false | true |
+
+#### 模式 B：纯文本模式（< 10 列）
+
+适合脚本、`*.sh`、`*.conf` 等"无结构"文件。CSV 一般 3 列：
+
+```csv
+content,authority,labels
+"#!/bin/bash\nexport HADOOP_HOME=/usr/sdp/v5.3.1/hadoop\n...",3,"环境变量"
+```
+
+CSVConverter 行为：
+- key 自动固定为 `"content"`；
+- `nextLine[0]` → `value`（整个文件内容）；
+- `nextLine[1]` → `authority` 数字（同模式 A）；
+- `nextLine[2]` → `label` (按逗号拆分)；
+- `isMust = true`，`isSysConfig = false` 默认。
+
+#### CSV 文件编码注意
+
+- 真实项目里 CSV **带 UTF-8 BOM**（OpenCSV 能正确处理）；
+- 多列值含逗号时**必须用双引号包围**；
+- 描述里有换行时也用双引号包围多行。
 
 ---
 
@@ -176,19 +220,27 @@ protected List<BranchModel> initContents(
 
 - `default` 分支不修改，覆盖主机由 `@Serve.all` 决定（all=true 时所有主机，否则仅服务相关主机）。
 
-### 3.2 `BranchModel` 结构
+### 3.2 `BranchModel` 结构（`AbstractConfig` 的内部类）
+
+`BranchModel` 是 `AbstractConfig` 的 `protected static` 内部类，**子类继承时直接 `new BranchModel(...)` 即可**：
 
 ```java
-class BranchModel {
-    String branchName;                  // 分支名
-    Map<String, String> content;        // 该分支的配置项
-    Set<String> hosts;                  // 该分支覆盖的主机
+@Getter
+@AllArgsConstructor
+protected static class BranchModel {
+    private final String name;                  // 分支名
+    private final Set<String> hostnames;        // 该分支覆盖的主机名集合
+    private final Map<String, String> content;  // 该分支的配置项内容
 }
 ```
 
+⚠️ **构造器参数顺序**：`(name, hostnames, content)` —— 由 Lombok `@AllArgsConstructor` 按字段声明顺序生成。
+
+> 默认分支名常量：`cn.gsq.sdp.SdpPropertiesFinal.DEFAULT_CHAR`（通常等于 `"default"`）。
+
 ### 3.3 典型实现
 
-#### 例 1：根据蓝图主机修改 dfs.replication
+#### 例 1：单分支，根据 ZK 信息修改 core-site.xml（galaxy-libraries 真实写法）
 
 ```java
 @Override
@@ -196,14 +248,17 @@ protected List<BranchModel> initContents(
     Map<String, Map<String, String>> branches,
     Blueprint.Serve serve
 ) {
-    Map<String, String> def = branches.get("default");
-    int dataNodeCount = serve.getProcesses().stream()
-        .filter(p -> p.getName().equals("DataNode"))
-        .mapToInt(p -> p.getHostnames().size()).sum();
-    // 副本数不超过 DataNode 数
-    def.put("dfs.replication", String.valueOf(Math.min(3, dataNodeCount)));
-    return List.of(
-        new BranchModel("default", def, /* hosts */ getAllHostnames(serve))
+    Map<String, String> config = branches.get(SdpPropertiesFinal.DEFAULT_CHAR);
+    config.put("fs.defaultFS", "hdfs://sugon-cluster");
+    config.put("ha.zookeeper.quorum",
+        getZkUrl(this.sdpManager.getServeByName("Zookeeper")));
+    return CollUtil.newLinkedList(
+        new BranchModel(
+            SdpPropertiesFinal.DEFAULT_CHAR,
+            CollUtil.newHashSet(CollUtil.map(
+                hostManager.getHosts(), AbstractHost::getHostname, true)),
+            config
+        )
     );
 }
 ```
@@ -222,12 +277,16 @@ protected List<BranchModel> initContents(
     masterCfg.put("coordinator", "true");
     workerCfg.put("coordinator", "false");
 
-    Set<String> masterHosts = getProcessHosts(serve, "PrestoCoordinator");
-    Set<String> workerHosts = getProcessHosts(serve, "PrestoWorker");
+    Set<String> masterHosts = sdpManager.getProcessByName("Coordinator")
+        .getHosts().stream().map(AbstractHost::getHostname)
+        .collect(Collectors.toSet());
+    Set<String> workerHosts = sdpManager.getProcessByName("Worker")
+        .getHosts().stream().map(AbstractHost::getHostname)
+        .collect(Collectors.toSet());
 
     return List.of(
-        new BranchModel("master", masterCfg, masterHosts),
-        new BranchModel("worker", workerCfg, workerHosts)
+        new BranchModel("master", masterHosts, masterCfg),    // 顺序：name, hostnames, content
+        new BranchModel("worker", workerHosts, workerCfg)
     );
 }
 ```
@@ -236,18 +295,29 @@ protected List<BranchModel> initContents(
 
 ## 4. 配置项元数据 `ConfigItem`
 
+`cn.gsq.sdp.ConfigItem`（Lombok `@Getter`/`@Setter`/`@Accessors(chain = true)`）实际字段：
+
 ```java
-class ConfigItem {
-    String key;             // 配置项 key
-    String value;           // 当前值
-    String origin;          // 默认值（来自 CSV）
-    String label;           // UI 显示名
-    String description;     // 描述
-    String permission;      // 权限（EDITABLE / READONLY 等）
+public class ConfigItem implements Serializable {
+    private String key;             // 配置项主键
+    private String value;           // 配置项内容（当前值）
+    private String origin;          // 默认值（来自 CSV v_dictionary）
+    private String separator;       // 分隔符（值是数组时不能为空）
+    private Boolean isMust;         // 是否必须
+    private List<String> label;     // 配置项标签（按 CSV labels 列逗号拆分）
+    private String description;     // 英文描述
+    private String description_ch;  // 中文描述
+    private Boolean isReadOnly;     // 是否只读
+    private Boolean isHidden;       // 是否隐藏
+    private Boolean canDelete;      // 是否可删除
+    private Boolean isInDictionary = true;  // 是否在字典里（默认 true）
+    private Boolean isInUsing;      // 字典里的配置项是否在使用中
+    private Boolean isSysConfig;    // 是否系统自动生成
 }
 ```
 
-`ConfigItem` 既用于内存中的当前配置，也用于 UI 展示和编辑。
+> `isReadOnly` / `isHidden` / `canDelete` 三者由 CSV 第 8 列 `authority`（1-4）派生（见 §2.4）。
+> **不存在 `permission` 字段** —— 如果旧文档提及 `permission`，请按 `isReadOnly` / `isHidden` / `canDelete` / `isSysConfig` 重新表达。
 
 ---
 
@@ -291,10 +361,10 @@ worker 分支
 
 ---
 
-## 6. 端到端示例：完整 PrestoSQL 配置定义
+## 6. 端到端示例：完整 PrestoSQL 配置定义（v5.3.2）
 
 ```java
-package io.github.sdp.v531.prestosql.config;
+package com.sugon.gsq.libraries.v532.prestosql.config;
 
 @Config(
     master = PrestoSQL.class,
@@ -317,41 +387,49 @@ public class ConfigProperties extends AbstractConfig {
 
         master.put("coordinator", "true");
         master.put("node-scheduler.include-coordinator", "false");
-
         worker.put("coordinator", "false");
 
-        // 端口可由用户在 Blueprint 中覆盖
-        String httpPort = (String) serve.getArgs().getOrDefault("http-port", "8080");
-        master.put("http-server.http.port", httpPort);
-        worker.put("http-server.http.port", httpPort);
+        Set<String> masterHosts = sdpManager.getProcessByName("Coordinator")
+            .getHosts().stream().map(AbstractHost::getHostname)
+            .collect(Collectors.toSet());
+        Set<String> workerHosts = sdpManager.getProcessByName("Worker")
+            .getHosts().stream().map(AbstractHost::getHostname)
+            .collect(Collectors.toSet());
 
-        return List.of(
-            new BranchModel("master", master, getProcessHosts(serve, "Coordinator")),
-            new BranchModel("worker", worker, getProcessHosts(serve, "Worker"))
+        return CollUtil.newLinkedList(
+            new BranchModel("master", masterHosts, master),    // (name, hostnames, content)
+            new BranchModel("worker", workerHosts, worker)
         );
     }
 }
 ```
 
-对应 CSV：
+对应 CSV（注意路径含版本号 `v532`、多分支文件**不带 `$`**）：
 
 ```
-src/main/resources/PrestoSQL/config.properties/
-├── master.properties$.csv      // 默认 master 分支配置 + 字典
-└── worker.properties$.csv      // 默认 worker 分支配置 + 字典
+src/main/resources/v532/PrestoSQL/config/
+├── master.properties.csv      // master 分支数据（纯文本或 < 10 列）
+└── worker.properties.csv      // worker 分支数据
 ```
+
+> 子目录名 `config` 来自 `@Config.path = "/presto/etc/config.properties"` 的文件名 `config.properties` 派生（去掉扩展名）。具体的目录名取决于 SDK 内部的 CSV 加载规则，需要时参考其它已有的多分支配置（如 v541/Trino/config/）。
 
 ---
 
 ## 7. 易踩坑（针对 @Config）
 
-1. **`branches` 列出但 CSV 文件缺失** → 加载时 NPE 或空内容。每个 `branches` 元素必须有对应 CSV 文件。
-2. **CSV 字段顺序错乱**：必须严格 `key, origin, label, description, permission`（按接入方约定）。乱序时所有项的元数据错位。
-3. **CSV 包含 BOM 或换行符不一致** → 解析器可能跳过首行或合并行。统一用 UTF-8 无 BOM + Unix 换行。
-4. **`initContents` 返回的 BranchModel 中 hosts 集合为空** → 该分支的配置文件不会下发到任何主机。
-5. **`@Config.path` 与实际部署目录不一致** → 配置写到错误位置，进程读不到。
-6. **多分支配置同一 key 给不同值，但 hosts 集合重叠** → 同一台主机上的配置文件被覆盖两次，最后一次"赢"，行为不可预期。**hosts 集合应不相交**。
-7. **`show = false` 但配置项有 `permission = EDITABLE`** → 矛盾。`show=false` 时 UI 不暴露，权限标志没意义。
-8. **修改 CSV 字典中的 `origin`（默认值）但不发 SDP 版本** → 已安装的环境不会自动应用新默认值（除非显式 `updateConfig`）。
-9. **`@Config.order` 在同一服务内重复** → 配置列表顺序不稳定。
-10. **Blueprint 的 `args` 字段为 null** → `initContents` 中 `serve.getArgs().getOrDefault(...)` NPE。务必 `Optional.ofNullable(serve.getArgs()).orElse(Map.of())`。
+1. **CSV 不是恰好 10 列** → 字典模式（带 `$` 的文件）只在列数 == 10 时生效；少一列或多一列会被当成纯文本模式，所有元数据丢失。表头第一行的列名只是给人看的，CSVConverter **按索引而非按列名**取值。
+2. **resources 目录缺版本号一层**：必须是 `resources/{sdpVersion}/{serveClassName}/...`，例如 `resources/v531/HDFS/core-site.xml$.csv`。**没有版本号前缀框架找不到文件**。
+3. **`@Sdp.version` 去 `.` 后必须与 resources 顶层目录名 + Java 包名末段三者一致**（`v5.3.1` ↔ `v531`）。
+4. **服务子目录名必须与 `@Serve` 类名完全一致**（大小写敏感）。`HDFS` 类对应 `resources/v531/HDFS/`，不是 `Hdfs/`。
+5. **多分支文件名一般不带 `$`**：单分支字典文件用 `xxx$.csv`，多分支文件用 `{branch}.csv` 即可（真实项目里 PrestoSQL/Trino 的 master/worker 都是不带 `$` 的）。
+6. **`BranchModel` 构造器参数顺序**：`(name, hostnames, content)`，不是 `(name, content, hostnames)`。这是 Lombok `@AllArgsConstructor` 按字段声明顺序生成的。
+7. **`branches` 列出但 CSV 文件缺失** → 加载时 NPE 或空内容。每个 `branches` 元素必须有对应 CSV 文件。
+8. **`initContents` 返回的 BranchModel 中 hostnames 集合为空** → 该分支的配置文件不会下发到任何主机。
+9. **`@Config.path` 与实际部署目录不一致** → 配置写到错误位置，进程读不到。
+10. **多分支同一 key 给不同值但 hostnames 集合重叠** → 同一台主机的配置文件被覆盖两次，最后一次"赢"，行为不可预期。**hostnames 集合应不相交**。
+11. **CSV 第 8 列 `authority` 不是 1-4 整数** → `Integer.parseInt(...)` 直接抛 `NumberFormatException`，整个 CSV 加载失败。
+12. **修改 CSV 字典中的 `v_default` 但已安装的环境** → 已安装的环境不会自动应用新默认值（除非显式 `updateConfig`）。
+13. **`@Config.order` 在同一服务内重复** → 配置列表顺序不稳定。
+14. **Blueprint 的 `args` 字段为 null** → `initContents` 中 `serve.getArgs().getOrDefault(...)` NPE。务必 `Optional.ofNullable(serve.getArgs()).orElse(Map.of())`。
+15. **以为可以用 `permission` 字段** → ConfigItem 没有这个字段。权限由 CSV 第 8 列 `authority` 数字派生为 `isReadOnly` / `isHidden` / `canDelete` 三个布尔（见 §2.4）。

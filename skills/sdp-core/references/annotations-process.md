@@ -167,7 +167,7 @@ ELECTION: SLAVE.isAvailable(process)        // 委托给 SLAVE
 
 | 钩子 | 触发时机 | 典型用途 | 必须覆盖？ |
 |---|---|---|---|
-| `initProcess()` | Blueprint 中本进程所覆盖主机已添加到 `this.hosts` 之后 | 进程实例级初始化（如计算端口、加载本地状态） | 可选 |
+| `initProcess()` | Blueprint 中本进程所覆盖主机已添加到 `this.hosts` 之后 | **🔥 进程级安装动作**——真实项目里在这里执行**格式化、依次启动主备、等待可用**等关键步骤（不仅仅是字段初始化）。NameNode 的 initProcess 会做 HA 格式化 + 主备启动 + 探活等。 | 可选；扩缩容进程一般要写 |
 | `getPort()` | 端口探针时 | 返回进程对外端口；返回 `-1` 表示走 ps grep mark | 可选（默认 -1） |
 | `reset()` | 卸载时所有主机上进程已停止后 | 清理进程级残留资源 | 可选 |
 | `extend(AbstractHost)` | 扩容时对每台新主机调一次 | 单机扩容动作（如复制配置、加入集群） | ⚠️ `dynamic=true` 时**必须**覆盖 |
@@ -175,48 +175,63 @@ ELECTION: SLAVE.isAvailable(process)        // 委托给 SLAVE
 | `getLogFilePath()` | UI 拉日志时 | 返回该进程日志目录 | 可选（默认 `home + "/logs"`） |
 | `getLogFileName(String hostname)` | UI 拉日志时 | 返回日志文件名 | 可选 |
 
-### 3.1 完整示例
+### 3.1 完整示例（galaxy-libraries v5.3.1 NameNode 真实代码）
 
 ```java
+package com.sugon.gsq.libraries.v531.hdfs.process;
+
+@Slf4j
 @Process(
     master = HDFS.class,
-    depends = JournalNode.class,
-    companions = Zkfc.class,
-    excludes = DataNode.class,
     handler = ProcessHandler.MASTER,
-    groups = { @Group(mode = MasterSlave.class, name = "MASTER") },
+    groups = {
+        @Group(mode = SCIsolateMode.class, name = "MASTER")
+    },
     mark = "NameNode",
     home = "/hadoop",
     start = "./bin/hdfs --daemon start namenode",
     stop  = "./bin/hdfs --daemon stop namenode",
-    dynamic = false,    // NameNode 固定主备，不扩缩容
-    description = "HDFS NameNode（HA 主备）",
+    description = "HDFS主进程（高可用）",
+    depends = JournalNode.class,        // 必须先启动 JournalNode
+    companions = Zkfc.class,            // ZKFailoverController 必须与 NameNode 同主机
     order = 2,
     min = 2, max = 2
 )
 public class NameNode extends AbstractProcess<SdpHost531Impl> {
 
     @Override
-    public Integer getPort() {
-        return 9870;     // HTTP UI 端口，用于端口探针
-    }
-
-    @Override
     protected void initProcess() {
-        // hosts 已就绪，可以做一些初始化（如校验主备数量为 2）
+        // initProcess 不只是"做点初始化"——这里直接执行主备 NameNode 的格式化与启动
+        String dirs = getNameNodeDirs();
+        SdpHost531Impl nn1 = this.getHosts().get(0);
+        SdpHost531Impl nn2 = this.getHosts().get(1);
+
+        nn1.installActiveNameNode(dirs);   // 格式化主 NameNode
+        nn1.startProcess(this);             // 启动主
+        explore(nn1);                       // 等待主可用
+
+        nn2.installStandbyNameNode(dirs);  // 引导备 NameNode
+        nn2.startProcess(this);
+        explore(nn2);
     }
 
     @Override
-    protected String getLogFilePath() {
-        return getHome() + "/logs";
+    public Integer getPort() {
+        return 9871;     // HTTPS UI 端口，用于端口探针
     }
 
     @Override
-    protected String getLogFileName(String hostname) {
-        return "hadoop-hdfs-namenode-" + hostname + ".log";
+    protected void reset() {
+        // 卸载时清理
+        String dirs = getNameNodeDirs();
+        for (SdpHost531Impl host : this.getHosts()) {
+            host.uninstallNameNode(dirs);
+        }
     }
 }
 ```
+
+> 注意：`initProcess` 里直接调 `host.startProcess(this)` 完成主备启动，**这与 skill 早期描述的"只是初始化字段"不同**。`AbstractProcess.install()` 在 `initProcess` 之后还会做 DAG 启停，但对于带顺序约束的进程（如 HA NameNode 主备依次格式化），在 `initProcess` 里完成更直接。
 
 ### 3.2 扩缩容进程示例
 
@@ -224,6 +239,8 @@ public class NameNode extends AbstractProcess<SdpHost531Impl> {
 @Process(
     master = HDFS.class,
     handler = ProcessHandler.SLAVE,
+    excludes = NameNode.class,            // DataNode 不能与 NameNode 同主机
+    groups = { @Group(mode = SCIsolateMode.class, name = "DATA") },
     mark = "DataNode",
     home = "/hadoop",
     start = "./bin/hdfs --daemon start datanode",
@@ -239,17 +256,25 @@ public class DataNode extends AbstractProcess<SdpHost531Impl> {
 
     @Override
     protected void extend(AbstractHost host) {
-        // 扩容时：在新主机上准备配置、注册到 NameNode
-        host.actuator("hdfs-prepare-datanode", Map.of("nodeId", host.getName()));
+        SdpHost531Impl impl = (SdpHost531Impl) host;
+        impl.installDataNode();             // 调 Host 业务方法
     }
 
     @Override
     protected void shorten(AbstractHost host) {
-        // 缩容时：执行 decommission、等待数据迁移、从集群剔除
-        host.actuator("hdfs-decommission", Map.of("nodeId", host.getName()));
+        SdpHost531Impl impl = (SdpHost531Impl) host;
+        impl.uninstallDataNode();
     }
 }
 ```
+
+### 3.3 `companions` / `excludes` 真实场景
+
+| 关系 | 真实例子 |
+|---|---|
+| `depends` | `NameNode` 依赖 `JournalNode` —— JN 必须先启动给 HA 提供编辑日志 |
+| `companions` | `Zkfc`（ZKFailoverController）与 `NameNode` 同主机 —— Zkfc 在 NN 同机监控选主 |
+| `excludes` | `DataNode` 与 `NameNode` 互斥 —— 通常生产环境 NN 节点不跑 DN 以免资源争抢 |
 
 ---
 

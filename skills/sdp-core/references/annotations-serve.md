@@ -48,7 +48,15 @@ public @interface Serve {
 
 ### 1.3 `type`（可选）
 
-`ClassifyHandler` 枚举值，例如 `BIGDATA`、`OTHER`。仅作 UI 展示分类，不影响行为。
+`ClassifyHandler` 枚举值，仅作 UI 展示分类，不影响行为。完整枚举：
+
+| 枚举 | 中文名 | 典型例子 |
+|---|---|---|
+| `BIGDATA` | 大数据组件 | HDFS、Spark、Hive、Doris |
+| `BASICS` | 基础组件 | ZooKeeper、MySQL |
+| `TOOL` | 工具服务 | Ranger、Kerby |
+| `CUSTOM` | 自定义服务 | 业务方扩展 |
+| `OTHER` | 其它类型 | 默认值 |
 
 ### 1.4 `depends`（重要）
 
@@ -146,7 +154,7 @@ boolean isInstalled(AbstractServe serve) {
 | `afterInstall(Blueprint.Serve blueprint)` | 所有进程安装启动完成、`ServeDriver.receiptInstallServe` 调用之前 | 触发服务级初始化脚本（如建库、初始化元数据表） | **此时服务不一定可用**——回调点早于可用性轮询 |
 | `callbackServe()` | 全部完成（进程可用 + 落库完成） | 通知其它服务、刷新缓存 | 服务此时已正式可用 |
 | `afterRecover(AbstractServe serve)` | 卸载时进程/配置全部清理完成后、同步数据库前 | 清理服务级残留（如外部依赖资源） | |
-| `extendProperties(Map<String, String> properties)` | `getProperties()` 被调用时 | 注入业务自定义展示字段（已含 name/version） | 在 UI 服务详情页展示 |
+| `extendProperties(Map<String, String> properties)` | `getProperties()` 被调用时 | **🔥 服务详情页核心数据源**——往 properties 塞动态计算的状态信息（主备进程哪个 active、数据节点数、关键配置项摘要、Ranger 是否开启等） | 真实项目里通常是 30-100 行代码，是用户感知服务状态的主要窗口 |
 | `getWebUIs()` | UI 渲染服务卡片 | 返回服务的 Web 入口（如 NameNode UI 链接） | 返回 `List<WebUI>` |
 | `isServeAvailable()` | UI 主动健康检查 | 业务级可用性（HTTP 探针、SQL 探针等），默认走进程状态聚合 | 返回 `RpcRespond<String>` |
 
@@ -192,24 +200,84 @@ public RpcRespond<String> isServeAvailable() {
 }
 ```
 
-### 3.2 服务安装 10 步流程（钩子触发点）
+### 3.2 服务安装阶段与钩子触发顺序
+
+`install(blueprint)` 内部主要阶段（不要把"步数"当固定数字记，重点是**钩子的相对顺序**）：
 
 ```
 install(blueprint):
-  1. 校验 mode、解析 Blueprint
-  2. 状态置 INSTALLING，加锁
-     ───►【钩子】initServe(blueprint)
-  3. 对每台目标主机：downloadPackage
-     ───►【驱动】ServeDriver.receiptInstallServe(blueprint)
-  4. 各 AbstractConfig.install(blueprint) 初始化配置
-  5. 各 AbstractProcess.install() 按 DAG 顺序在目标主机落地 + 启动
-     ───►【钩子】afterInstall(blueprint)
-  6. 轮询所有进程 isAvailable()，超时 → 抛错触发 recover()
-     ───►【钩子】callbackServe()
-  7. 解锁，状态置 RUNNING
+  ┌─ 状态置 INSTALLING + 加锁
+  │  ───►【钩子】initServe(blueprint)              ← 此时进程/配置都未初始化
+  │
+  ├─ 在所有目标主机 downloadPackage
+  │  ───►【驱动】ServeDriver.receiptInstallServe(blueprint)
+  │
+  ├─ 各 AbstractConfig 初始化（initContents 钩子触发）
+  ├─ 各 AbstractProcess 按 DAG 顺序落地 + 启动
+  │  ───►【钩子】afterInstall(blueprint)          ← 进程刚启动，可用性未确认
+  │
+  ├─ 轮询所有进程 isAvailable()（超时 → recover）
+  │  ───►【钩子】callbackServe()                  ← 服务真正可用
+  └─ 解锁 + 状态置 RUNNING
 ```
 
+> 阶段数与精确顺序依框架版本而异，**写代码时请回查 `AbstractServe.install` 源码**。重点是钩子语义：
+> - `initServe` 早期入口，**还没装东西**；
+> - `afterInstall` 进程启动后，**未必可用**；
+> - `callbackServe` **服务完全可用**后；
+> - `afterRecover` 卸载完成、入库前。
+
 异常路径：任意步骤抛错 → 状态置 `UNINSTALLING` → 执行 `recover()` → 反向卸载 → 触发 `afterRecover()`。
+
+### 3.3 `AbstractServe` 常用工具方法（子类高频调用）
+
+| 方法 | 用途 |
+|---|---|
+| `getProcessByName(String name)` | 取本服务下的进程（泛型为 `AbstractProcess<AbstractHost>`） |
+| `getProcessByNameForImpl(String name)` | 取**带具体 Host 类型**的进程（如 `AbstractProcess<SdpHost531Impl>`），便于调用版本专用的 Host 业务方法 |
+| `getConfigByName(String cname)` | 取本服务的配置文件实例 |
+| `getConfigDefaultContentToMap(String cname)` | 取默认分支配置的 `Map<String, String>`（**最常用**，extendProperties / activeXxx 等里随处可见） |
+| `getConfigBranchContentToMap(String cname, String bname)` | 取指定分支的配置 Map |
+| `updateConfigDefault(String cname, Map<String, String> items)` | 修改默认分支配置并同步到主机 |
+
+**典型组合用法**（galaxy-libraries v5.3.1 HDFS 真实代码）：
+
+```java
+public class HDFS extends AbstractServe {
+    @Autowired SdpRangerIFace extraIFace;       // 注入上层 Web 系统提供的业务接口
+
+    @Function(id = "ACTIVEAUTHORITY", name = "开启权限管理")
+    public void activeAuthority() {
+        AbstractProcess<AbstractHost> namenode = this.getProcessByName("NameNode");
+        namenode.stop();
+
+        // 拿到带具体类型的进程（其 hosts 是 List<SdpHost531Impl>）
+        AbstractProcess<SdpHost531Impl> impl = this.getProcessByNameForImpl("NameNode");
+        for (SdpHost531Impl hostImpl : impl.getHosts()) {
+            if (hostImpl.hdfsOpenRanger(rangerHost)) {           // 调 Host 类的业务方法
+                Map<String, String> map = new HashMap<>();
+                map.put(rangerKey, rangerValue);
+                this.updateConfigDefault("hdfs-site.xml", map);   // 改配置
+            }
+        }
+        namenode.start();
+        extraIFace.createPlugInRanger(...);                       // 调外部业务接口
+    }
+}
+```
+
+### 3.4 注入上层 Web 系统的业务接口
+
+`@Serve` 类是 Spring Bean，可以 `@Autowired` 注入由 Web 系统（依赖 `sdp-spring-boot-starter`）定义的业务接口：
+
+```java
+@Serve(...)
+public class HDFS extends AbstractServe {
+    @Autowired SdpRangerIFace extraIFace;   // 由上层 Web 系统提供的 Ranger 客户端
+}
+```
+
+这是 SDP 包反向依赖业务接口的常见模式——典型用途：Ranger / Kerberos / 监控告警 等需要业务层配合的功能。
 
 ---
 
@@ -266,10 +334,10 @@ DAG 在框架初始化时通过 `DagUtil.getDagResult(serves)` 排序，启停�
 
 ---
 
-## 6. 端到端示例：完整 Hive 服务定义
+## 6. 端到端示例：完整 Hive 服务定义（galaxy-libraries 风格）
 
 ```java
-package io.github.sdp.v531.hive;
+package com.sugon.gsq.libraries.v531.hive;
 
 @Serve(
     version = "3.1.3",
@@ -287,23 +355,47 @@ package io.github.sdp.v531.hive;
     pkg = "hive",
     order = 10
 )
+@Slf4j
 public class Hive extends AbstractServe {
+
+    @Autowired SdpRangerIFace extraIFace;       // 上层 Web 系统提供的业务接口
 
     @Override
     protected void initServe(Blueprint.Serve blueprint) {
-        // 检查必需参数
+        // 在所有主机创建 hive 用户
+        for (AbstractHost host : sdpManager.getHostManager().getHosts()) {
+            SdpHost531Impl impl = sdpManager.getExpectHostByName(host.getName());
+            impl.createLDAPUser("hive", 9002);
+        }
     }
 
     @Override
     protected void afterInstall(Blueprint.Serve blueprint) {
-        // 初始化 Metastore schema
-        AbstractHost master = getProcessHosts("HiveMetaStore").get(0);
+        // 初始化 Metastore schema —— 此时服务未必可用，但进程已启动可执行脚本
+        SdpHost531Impl master = getProcessByNameForImpl("HiveMetaStore").getHosts().get(0);
         master.actuator("schematool", Map.of("type", "init", "dbType", "mysql"));
     }
 
     @Override
+    protected void extendProperties(Map<String, String> properties) {
+        Map<String, String> hiveSite = getConfigDefaultContentToMap("hive-site.xml");
+        properties.put("Metastore URI", hiveSite.get("hive.metastore.uris"));
+        properties.put("Server2 端口", hiveSite.get("hive.server2.thrift.port"));
+        properties.put("仓库目录", hiveSite.get("hive.metastore.warehouse.dir"));
+        properties.put("HiveServer2 节点数",
+            String.valueOf(getProcessByName("HiveServer2").getHosts().size()));
+    }
+
+    @Override
     public List<WebUI> getWebUIs() {
-        return /* 收集 HiveServer2 主机 + 10002 端口 */ ;
+        List<WebUI> uis = new ArrayList<>();
+        for (AbstractHost h : getProcessByName("HiveServer2").getHosts()) {
+            WebUI ui = new WebUI();
+            ui.setUrl("http://" + h.getName() + ":10002");
+            ui.setName("HiveServer2 UI");
+            uis.add(ui);
+        }
+        return uis;
     }
 
     @Function(id = "REFRESH_METADATA", name = "刷新元数据")

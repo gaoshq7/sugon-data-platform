@@ -38,41 +38,47 @@ SDP 服务包只需依赖 `sdp-core`，**不要**引 `sdp-spring-boot-starter`�
 
 ---
 
-## 2. SDP 服务包整体结构
+## 2. SDP 服务包整体结构（galaxy-libraries 真实结构）
 
 一个 SDP 版本包（例如 v5.3.1）的目录树：
 
 ```
-io.github.sdp.v531/                            ← 版本根包（命名约定见 §6）
+src/main/java/com/sugon/gsq/libraries/v531/   ← 版本根包，末段 v531 ↔ @Sdp(version="v5.3.1")
 ├── package-info.java                          ← @Sdp(version = "v5.3.1") ✅必须
-├── SdpHost531Impl.java                        ← @Host extends AbstractHost ✅必须，每版本仅 1 个
-├── mode/
-│   ├── MasterSlave.java                       ← @Mode("主从混合") enum implements HostGroup
-│   └── ComputeStorageSeparation.java          ← @Mode("存算分离") ...
-├── hdfs/
-│   ├── Hdfs.java                              ← @Serve extends AbstractServe
-│   ├── process/
-│   │   ├── NameNode.java                      ← @Process extends AbstractProcess<SdpHost531Impl>
-│   │   ├── DataNode.java
-│   │   └── JournalNode.java
-│   └── config/
-│       ├── CoreSiteXml.java                   ← @Config extends AbstractConfig
-│       └── HdfsSiteXml.java
-├── spark/
-│   └── ...
+├── SdpHost531Impl.java                        ← @Host() extends AbstractHost ✅必须，每版本仅 1 个
+├── SCIsolateMode.java                         ← @Mode("存算分离") enum，与 @Host 类同级即可
+├── MasterSlaveMode.java                       ← @Mode("主从混合")
+├── hdfs/                                      ← Java 子包小写
+│   ├── HDFS.java                              ← @Serve（类名遵循官方组件命名：缩写全大写）
+│   ├── config/
+│   │   ├── CoreSiteXml.java                   ← @Config
+│   │   └── HdfsSiteXml.java
+│   └── process/
+│       ├── NameNode.java                      ← @Process extends AbstractProcess<SdpHost531Impl>
+│       ├── DataNode.java
+│       ├── JournalNode.java
+│       └── Zkfc.java
+├── prestosql/
+│   └── PrestoSQL.java                         ← 类名 PrestoSQL，对应 resources/v531/PrestoSQL/
 └── ...
 
-resources/                                     ← CSV 字典数据
-├── HDFS/
-│   ├── core-site.xml$.csv                     ← 单分支配置
-│   └── hdfs-site.xml$.csv
+src/main/resources/v531/                       ← ⚠️ 顶层是 SDP 版本号目录
+├── HDFS/                                      ← 服务子目录名 = @Serve 类简单类名（严格大小写一致）
+│   ├── core-site.xml$.csv                     ← 单分支 + 字典（10 列固定）
+│   ├── hdfs-site.xml$.csv
+│   ├── dfs.hosts.csv                          ← 不带 $ 的纯文本配置
+│   └── hadoop-env.sh.csv
 └── PrestoSQL/
-    └── config/
-        ├── master.properties$.csv             ← 多分支：master 分支
-        └── worker.properties$.csv             ← 多分支：worker 分支
+    ├── jvm.config.csv                         ← 单分支纯文本
+    └── config/                                ← 多分支用子目录
+        ├── master.properties.csv              ← 多分支文件名一般 *不带* $
+        └── worker.properties.csv
 ```
 
-> `resources/` 下的服务子目录名 = `@Serve` 注解所在类的简单类名（如 `Hdfs` 类 → `resources/Hdfs/`）。配置文件名 = `@Config` 注解所在类的简单类名衍生。详见 `references/annotations-config.md`。
+> **关键约定**（详见 `references/annotations-config.md` §2）：
+> - `resources/` 顶层是 **SDP 版本号目录**（`v531` ↔ `@Sdp(version="v5.3.1")` 去 `.`）；
+> - 服务子目录名**与 `@Serve` 类简单类名完全一致**（`HDFS` / `PrestoSQL` / `Zookeeper`）；
+> - 单分支字典文件带 `$`；多分支文件一般**不带** `$`。
 
 ---
 
@@ -80,15 +86,16 @@ resources/                                     ← CSV 字典数据
 
 以新增 Doris 为例，5 步完成：
 
-### Step 1：在版本根包下声明服务类
+### Step 1：在版本根包下声明服务类（类名遵循官方组件命名）
 
 ```java
-package io.github.sdp.v531.doris;
+package com.sugon.gsq.libraries.v531.doris;
 
 @Serve(
     version = "1.2.4.1",
     handler = ServeHandler.MULTI_ROLE_MODE,          // 多角色模式（FE/BE）
-    depends = {Zookeeper.class},                     // 依赖
+    type = ClassifyHandler.BIGDATA,
+    depends = { Zookeeper.class },                   // 依赖
     description = "Apache Doris MPP 数据仓库",
     pkg = "doris",
     order = 20
@@ -101,16 +108,16 @@ public class Doris extends AbstractServe {
 ### Step 2：写进程（每个 BE / FE 一个类）
 
 ```java
-package io.github.sdp.v531.doris.process;
+package com.sugon.gsq.libraries.v531.doris.process;
 
 @Process(
     master = Doris.class,
     handler = ProcessHandler.SLAVE,
-    groups = { @Group(mode = MasterSlave.class, name = "DATA") },
+    groups = { @Group(mode = SCIsolateMode.class, name = "DATA") },
     mark = "DorisBE",
     home = "/doris/be",
     start = "./bin/start_be.sh --daemon",
-    stop = "./bin/stop_be.sh",
+    stop  = "./bin/stop_be.sh",
     dynamic = true,
     order = 2,
     min = 3, max = -1
@@ -129,7 +136,7 @@ public class DorisBe extends AbstractProcess<SdpHost531Impl> {
 ### Step 3：写配置文件类
 
 ```java
-package io.github.sdp.v531.doris.config;
+package com.sugon.gsq.libraries.v531.doris.config;
 
 @Config(
     master = Doris.class,
@@ -145,7 +152,15 @@ public class FeConf extends AbstractConfig {
 
 ### Step 4：放 CSV 字典数据
 
-`resources/Doris/fe.conf$.csv` —— 每行一个配置项，含 key / value / origin / label / description（具体格式见 `references/annotations-config.md`）。
+**路径**：`resources/v531/Doris/fe.conf$.csv`（注意顶层是版本号 `v531`，子目录是服务类名 `Doris`）。
+
+**格式**（10 列固定，CSV 加载器按列索引解析）：
+
+```
+key,v_dictionary,v_default,description_en,description_ch,isMust,delimiter,labels,authority,isSysConfig
+```
+
+详细列含义见 `references/annotations-config.md` §2.4。
 
 ### Step 5：（可选）加自定义功能函数
 
@@ -210,21 +225,30 @@ public boolean canRebalance() { return isAvailable() && /* ... */; }
 
 按踩坑频率从高到低：
 
-1. **包路径与版本号命名匹配**：`@Sdp(version = "v5.3.1")` 中版本号去掉所有 `.` 之后**必须等于** `package-info.java` 所在包名的最后一段（这里是 `v531`）。否则该版本被静默丢弃，`SdpEnvManager#getVersions()` 不会列出。
+1. **三处命名必须一致**：`@Sdp(version)` 去 `.` ↔ Java 包名末段 ↔ resources 顶层目录名。
+   例：`@Sdp(version = "v5.3.1")` → 包名末段 `v531` → `resources/v531/`。任一不匹配，该版本被静默丢弃。
 
-2. **一个版本包只能有一个 `@Host` 注解类**，且**必须有 `(String hostname, List<String> groups)` 构造器**。多个 `@Host` 会触发警告并随机选一个；构造器签名错误会反射失败。
+2. **resources 路径必须有版本号一层**：`resources/{sdpVersion}/{serveClassName}/...`，**不是** `resources/{serveClassName}/...`。
 
-3. **`@Mode` 标注的类必须是枚举且实现 `HostGroup`**；**不要覆盖 `mode()` 方法**——框架反射读取 `@Mode("XXX")` 的 value 作为 group 归属的 mode 桶，覆盖 `mode()` 返回别的字符串会让 group 错乱。
+3. **服务子目录名严格等于 `@Serve` 类的简单类名**（大小写敏感）。`@Serve class HDFS` 对应 `resources/v531/HDFS/`，**不是 `Hdfs/`**。类名遵循官方组件命名（缩写全大写）：`HDFS` / `PrestoSQL` / `Zookeeper`。
 
-4. **`@Serve` / `@Process` / `@Config` 的 `order` 字段在同层级内不可重复**（用于排序展示）；同一服务内进程的 `order`、同一服务内配置的 `order`、全局服务的 `order` 各自独立排序。
+4. **CSV 字典文件必须正好 10 列**：`key, v_dictionary, v_default, description_en, description_ch, isMust, delimiter, labels, authority, isSysConfig`。列数 ≠ 10 自动转纯文本模式，所有元数据丢失。表头第一行的列名仅给人看，CSV 加载器**按索引而非按列名**取值。
 
-5. **`@Process.dynamic = true` 时必须覆盖 `extend(AbstractHost)` 和 `shorten(AbstractHost)`**——否则扩缩容操作 no-op，看似成功但实际未生效。
+5. **单分支文件带 `$`，多分支文件一般不带 `$`**：`xxx$.csv` 触发字典模式（10 列）；`{branch}.csv` 多分支用纯文本格式。
 
-6. **`@Config.master` 与 `@Process.master`** 指向的服务类必须存在于同一版本包内；跨版本引用会找不到 Bean。
+6. **一个版本包只能有一个 `@Host` 注解类**，且**必须有 `(String hostname, List<String> groups)` 构造器**。
 
-7. **CSV 字典文件路径约定严格**：单分支用 `resources/{serveName}/{configFileName}$.csv`；多分支用 `resources/{serveName}/{configPrefix}/{branch}.{suffix}$.csv`。文件名带 `$` 表示包含字典（默认值 + 元数据），不带 `$` 仅含键值对。
+7. **`@Mode` 标注的类必须是枚举且实现 `HostGroup`**；**不要覆盖 `mode()` 方法**——框架反射读取 `@Mode("XXX")` 的 value 作为 group 归属的 mode 桶。
 
-8. **`@Function.id` 在同一服务/进程下必须唯一**——重复会导致 `@Available` 找不到目标函数。
+8. **`@Serve` / `@Process` / `@Config` 的 `order` 字段在同层级内不可重复**。
+
+9. **`@Process.dynamic = true` 时必须覆盖 `extend(AbstractHost)` 和 `shorten(AbstractHost)`**——否则扩缩容看似成功但实际未生效。
+
+10. **`@Config.master` 与 `@Process.master`** 指向的服务类必须存在于同一版本包内。
+
+11. **`BranchModel` 构造器参数顺序是 `(name, hostnames, content)`**（不是 `(name, content, hostnames)`）。
+
+12. **`@Function.id` 在同一服务/进程下必须唯一**——重复会导致 `@Available` 找不到目标函数。
 
 ---
 
